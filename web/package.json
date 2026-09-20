@@ -1,0 +1,39 @@
+{
+  "name": "ai-vtuber-voice-communication-sample-web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "generate-manifest": "tsx scripts/generate-assets-manifest.ts",
+    "predev": "pnpm run generate-manifest",
+    "dev": "next dev",
+    "prebuild": "pnpm run generate-manifest && rimraf out",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "format": "prettier --config .prettierrc --write \"src/**/*.{ts,js,tsx,jsx}\""
+  },
+  "dependencies": {
+    "@charcoal-ui/icons": "^5.12.0",
+    "@gltf-transform/core": "^4.3.0",
+    "@pixiv/three-vrm": "^3.5.3",
+    "jotai": "^2.12.5",
+    "lodash": "^4.18.1",
+    "next": "16.2.6",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "three": "^0.184.0"
+  },
+  "devDependencies": {
+    "@types/lodash": "^4.17.24",
+    "@types/node": "^25.9.1",
+    "@types/react": "^19.2.15",
+    "@types/react-dom": "^19.2.3",
+    "@types/three": "^0.184.1",
+    "eslint": "^10.4.1",
+    "eslint-config-next": "16.2.6",
+    "prettier": "^3.8.3",
+    "rimraf": "^6.0.1",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3"
+  }
+}

@@ -1,0 +1,12 @@
+node_modules
+.next
+out
+dist
+pnpm-lock.yaml
+*.vrm
+*.vrma
+*.woff
+*.png
+*.jpg
+*.ico
+*.svg
