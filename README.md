@@ -4,7 +4,7 @@ YouTube Liveの新着コメントをVOICEVOXで読み上げ、VRMのリップシ
 
 ## 起動
 
-Node.js 22以上、pnpm、VOICEVOX Engineを用意してください。
+pnpm、VOICEVOX Engineと、フロントをビルドするためのNode.jsを用意してください。採用したTanStack Startの依存パッケージは、ビルド環境にNode.js 22.12以上を要求します。デプロイ後は静的フロントとHonoをCloudflare Workersで配信し、Node.jsサーバーは使用しません。
 
 1. `pnpm install`
 2. VOICEVOX Engineを起動（標準: `http://127.0.0.1:50021`）。
@@ -33,9 +33,10 @@ Node.js 22以上、pnpm、VOICEVOX Engineを用意してください。
 
 - `packages/core`: UI・実行環境に依存しないセッション、コメント型、URL解析、キュー処理。取得と音声再生はポートとして注入するため、CLIや別UIで再利用可能。
 - `server/src/routes/live.ts`: YouTube / VOICEVOXアダプターとHTTP API。
+- `web/src/routes`, `web/src/router.tsx`: TanStack StartのルートとSSG用のHTML構成。
 - `web/src/features/live`: ブラウザの画面録画アダプター。
 - `web/src/features/vrmViewer`, `lipSync`: VRM表示・音声再生。
-- `web/src/pages/index.tsx`: 現在の操作UI。CLI自体は未実装です。
+- `web/src/screens/Studio.tsx`: 現在の操作UI。CLI自体は未実装です。
 - 既存のGroq/Geminiルートは将来のAI応答向けに保持しています（この機能にはキー不要）。
 
 API:
@@ -43,7 +44,31 @@ API:
 - `GET /api/live/comments?liveChatId=...&pageToken=...`
 - `POST /api/live/speech` JSON: `{"text":"こんにちは"}` → WAV
 
-開発用Web単体の `pnpm dev:web` はAPIをローカル8787番へ転送します。別ターミナルで `pnpm dev` を起動してください。通常は8787番の統合サーバーだけで試せます。ローカル用途を前提としており、API認証は未実装です。
+開発用Web単体の `pnpm dev:web` はAPIをローカル8787番へ転送します。別ターミナルで `pnpm dev` を起動してください。通常は8787番の統合サーバーだけで試せます。API認証は未実装です。
+
+
+## Cloudflare Workersへのデプロイ
+
+フロントとAPIは `server/wrangler.jsonc` の **live-ai-supporter** という1つのWorkerにまとめます。
+
+- `pnpm build:web`: TanStack StartのSSGで `web/dist/client/index.html` とJS/CSS・VRMを生成。
+- Workerの静的アセット: `web/dist/client`。
+- `/api` と `/api/*`: 既存のHonoが処理。
+- `web/dist/server`: プリレンダリング用ビルド。デプロイしません。
+
+```sh
+# 公開せず、SSG生成とWorkerのパッケージングを確認
+pnpm deploy:check
+
+# Cloudflareにログイン後、同じWorkerに設定
+pnpm --filter live-ai-supporter-server exec wrangler secret put YOUTUBE_API_KEY
+pnpm --filter live-ai-supporter-server exec wrangler secret put VOICEVOX_API_ROOT_URL
+
+# フロントとHonoをまとめてデプロイ
+pnpm deploy:cloudflare
+```
+
+`server/.dev.vars` はローカル用で、本番にはアップロードされません。本番の `VOICEVOX_API_ROOT_URL` はWorkerから到達できるエンジンのURLを設定してください。開発PCの `localhost:50021` はCloudflareから接続できません。既存のGroq/Gemini APIも使う場合は対応するキーも設定します。
 
 ## 検証
 

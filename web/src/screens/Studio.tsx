@@ -1,4 +1,3 @@
-import Head from 'next/head';
 import { useContext, useEffect, useRef, useState } from 'react';
 import { VrmViewer } from '../compoments/vrmViewer';
 import { ViewerContext } from '../features/vrmViewer/viewerContext';
@@ -212,10 +211,6 @@ export default function Home() {
   }
   return (
     <>
-      <Head>
-        <title>Live AI Supporter</title>
-        <meta name="description" content="YouTube LiveのコメントをVTuberが読み上げる配信サポートツール" />
-      </Head>
       <main className="studio">
         <VrmViewer />
         <section className="controls">

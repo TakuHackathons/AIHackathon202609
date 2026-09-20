@@ -1,6 +1,4 @@
-/**
- * Prefixes public asset URLs with the configured GitHub Pages base path.
- */
+/** Static assets and Hono API are hosted at the root of the same Worker. */
 export function buildUrl(path: string): string {
-  return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}${path}`;
+  return path.startsWith('/') ? path : '/' + path;
 }

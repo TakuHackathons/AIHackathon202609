@@ -29,7 +29,7 @@ type SpeakersCache = {
  * speakers のキャッシュを localStorage に保存する atom。
  * null = 未取得 or 期限切れ
  *
- * Next.js SSG では build 時に localStorage が存在しないため、
+ * SSG では build 時に localStorage が存在しないため、
  * createJSONStorage の getItem をブラウザ側のみ実行させる。
  */
 const speakersCacheStorage = createJSONStorage<SpeakersCache | null>(() => {

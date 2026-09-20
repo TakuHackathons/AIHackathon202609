@@ -11,8 +11,9 @@
 
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'node:url';
 
-const PUBLIC_DIR = path.resolve(__dirname, '../public');
+const PUBLIC_DIR = fileURLToPath(new URL('../public', import.meta.url));
 const OUTPUT_PATH = path.join(PUBLIC_DIR, 'assets-manifest.json');
 const VRM_DIR = path.join(PUBLIC_DIR, 'vrm');
 const BACKGROUNDS_DIR = path.join(PUBLIC_DIR, 'backgrounds');

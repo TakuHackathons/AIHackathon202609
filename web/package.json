@@ -5,12 +5,13 @@
   "scripts": {
     "generate-manifest": "tsx scripts/generate-assets-manifest.ts",
     "predev": "pnpm run generate-manifest",
-    "dev": "next dev",
-    "prebuild": "pnpm run generate-manifest && rimraf out",
-    "build": "next build",
-    "start": "next start",
+    "dev": "vite dev",
+    "prebuild": "pnpm run generate-manifest",
+    "build": "vite build",
+    "start": "vite preview --host 127.0.0.1",
     "lint": "tsc --noEmit",
-    "format": "prettier --config .prettierrc --write \"src/**/*.{ts,js,tsx,jsx}\""
+    "format": "prettier --config .prettierrc --write \"src/**/*.{ts,js,tsx,jsx}\"",
+    "postbuild": "node scripts/verify-static-build.mjs"
   },
   "dependencies": {
     "@charcoal-ui/icons": "^5.12.0",
@@ -18,10 +19,11 @@
     "@pixiv/three-vrm": "^3.5.3",
     "jotai": "^2.12.5",
     "lodash": "^4.18.1",
-    "next": "16.2.6",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
-    "three": "^0.184.0"
+    "three": "^0.184.0",
+    "@tanstack/react-start": "^1.168.56",
+    "@tanstack/react-router": "^1.168.0"
   },
   "devDependencies": {
     "@types/lodash": "^4.17.24",
@@ -29,11 +31,11 @@
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
     "@types/three": "^0.184.1",
-    "eslint": "^10.4.1",
-    "eslint-config-next": "16.2.6",
     "prettier": "^3.8.3",
-    "rimraf": "^6.0.1",
     "tsx": "^4.22.4",
-    "typescript": "^6.0.3"
-  }
+    "typescript": "^6.0.3",
+    "vite": "^8.3.0",
+    "@vitejs/plugin-react": "^6.1.1"
+  },
+  "type": "module"
 }

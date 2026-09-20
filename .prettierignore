@@ -10,3 +10,6 @@ pnpm-lock.yaml
 *.jpg
 *.ico
 *.svg
+
+web/src/routeTree.gen.ts
+web/dist/

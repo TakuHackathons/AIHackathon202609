@@ -5,6 +5,7 @@
   "compatibility_date": "2025-01-01",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
-    "directory": "../web/out"
-  }
+    "directory": "../web/dist/client",
+    "run_worker_first": ["/api", "/api/*"],
+  },
 }
