@@ -12,6 +12,9 @@ import { buildUrl } from '@/utils/buildUrl';
 export class Viewer {
   public isReady: boolean;
   public model?: Model;
+  public error = '';
+  private frame = 0;
+  private onResize = () => this.resize();
 
   private _renderer?: WebGLRenderer;
   private _timer: Timer;
@@ -39,32 +42,34 @@ export class Viewer {
   }
 
   public loadVrm(url: string) {
-    if (this.model?.vrm) {
-      this.unloadVRM();
-    }
-
-    // gltf and vrm
-    this.model = new Model(this._camera || new Object3D());
-    this.model.loadVRM(url).then(async () => {
-      if (!this.model?.vrm) return;
-
-      // Disable frustum culling
-      this.model.vrm.scene.traverse((obj) => {
-        obj.frustumCulled = false;
+    this.unloadVRM();
+    this.model?.disposeAudio();
+    const model = new Model(this._camera || new Object3D());
+    this.model = model;
+    this.error = '';
+    void model
+      .loadVRM(url)
+      .then(async () => {
+        if (this.model !== model) {
+          model.unLoadVrm();
+          return;
+        }
+        if (!model.vrm) throw new Error('VRM not found');
+        model.vrm.scene.traverse((obj) => {
+          obj.frustumCulled = false;
+        });
+        this._scene.add(model.vrm.scene);
+        const vrma = await loadVRMAnimation(buildUrl('/vrma/idle_loop.vrma'));
+        if (this.model !== model) return;
+        if (vrma) await model.loadAnimation(vrma);
+        requestAnimationFrame(() => {
+          if (this.model === model) this.resetCamera();
+        });
+      })
+      .catch(() => {
+        if (this.model === model) this.error = 'VRMまたはアニメーションの読み込みに失敗しました。';
       });
-
-      this._scene.add(this.model.vrm.scene);
-
-      const vrma = await loadVRMAnimation(buildUrl('/vrma/idle_loop.vrma'));
-      if (vrma) this.model.loadAnimation(vrma);
-
-      // HACK: アニメーションの原点がずれているので再生後にカメラ位置を調整する
-      requestAnimationFrame(() => {
-        this.resetCamera();
-      });
-    });
   }
-
   public unloadVRM(): void {
     if (this.model?.vrm) {
       this._scene.remove(this.model.vrm.scene);
@@ -99,9 +104,7 @@ export class Viewer {
     this._cameraControls.screenSpacePanning = true;
     this._cameraControls.update();
 
-    window.addEventListener('resize', () => {
-      this.resize();
-    });
+    window.addEventListener('resize', this.onResize);
     this.isReady = true;
     this.update();
   }
@@ -137,8 +140,20 @@ export class Viewer {
     }
   }
 
+  public dispose() {
+    cancelAnimationFrame(this.frame);
+    window.removeEventListener('resize', this.onResize);
+    this.unloadVRM();
+    this.model?.disposeAudio();
+    this.model = undefined;
+    this._cameraControls?.dispose();
+    this._renderer?.dispose();
+    this._renderer = undefined;
+    this.isReady = false;
+  }
+
   public update = () => {
-    requestAnimationFrame(this.update);
+    this.frame = requestAnimationFrame(this.update);
     // THREE.Timer: update() で内部時刻を進め、getDelta() で差分を取得する
     this._timer.update();
     const delta = this._timer.getDelta();

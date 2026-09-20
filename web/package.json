@@ -1,5 +1,5 @@
 {
-  "name": "ai-vtuber-voice-communication-sample-web",
+  "name": "live-ai-supporter-web",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -9,7 +9,7 @@
     "prebuild": "pnpm run generate-manifest && rimraf out",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "tsc --noEmit",
     "format": "prettier --config .prettierrc --write \"src/**/*.{ts,js,tsx,jsx}\""
   },
   "dependencies": {

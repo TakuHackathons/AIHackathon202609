@@ -1,299 +1,271 @@
-'use client';
-
-import { useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { useAtom } from 'jotai';
+import Head from 'next/head';
+import { useContext, useEffect, useRef, useState } from 'react';
 import { VrmViewer } from '../compoments/vrmViewer';
 import { ViewerContext } from '../features/vrmViewer/viewerContext';
-import { IconButton } from '../compoments/iconButton';
-import { SpeakerSelector } from '../compoments/speakerSelector';
-import { MessageWindow } from '../compoments/messageWindow';
-import { HistoryPanel } from '../compoments/historyPanel';
-import { VrmSelector } from '../compoments/vrmSelector';
-import { BackgroundSelector } from '../compoments/backgroundSelector';
-import { AiProviderSelector } from '../compoments/aiProviderSelector';
-import { LocaleToggle } from '../compoments/localeToggle';
-import { loadSpeackers, speakCharacterStream } from '../features/speak-character';
-import { speakersAtom, selectedSpeakerAtom, selectedSpeakerNameAtom } from '../lib/speakersAtom';
-import { historyAtom } from '../lib/historyAtom';
-import { aiProviderAtom, getApiPath } from '../lib/aiProviderAtom';
-import { localeAtom, useTranslations } from '../lib/i18n';
-import { EmotionType } from '../features/vrmViewer/model';
+import { LiveSession, videoIdFromInput, type CommentPage } from '../../../packages/core/src/index';
+import { ScreenRecording } from '../features/live/recording';
+import { buildUrl } from '../utils/buildUrl';
 
+async function api(path: string, init?: RequestInit) {
+  const response = await fetch(buildUrl('/api/live/' + path), init);
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.error || 'APIリクエストに失敗しました: ' + response.status);
+  }
+  return response;
+}
 export default function Home() {
   const { viewer } = useContext(ViewerContext);
-
-  const [speakers, setSpeakers] = useAtom(speakersAtom);
-  const [selectedSpeaker, setSelectedSpeaker] = useAtom(selectedSpeakerAtom);
-  const [selectedSpeakerName] = useAtom(selectedSpeakerNameAtom);
-  const [, setHistory] = useAtom(historyAtom);
-  const [aiProvider] = useAtom(aiProviderAtom);
-  const [locale] = useAtom(localeAtom);
-  const t = useTranslations();
-
-  const [userMessage, setUserMessage] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [messageText, setMessageText] = useState('');
-  const [currentEmotion, setCurrentEmotion] = useState<EmotionType>('neutral');
-  const [backgroundUrl, setBackgroundUrl] = useState<string>('');
-
-  // 入力エリアの高さを計測して HistoryPanel に渡す
-  const inputAreaRef = useRef<HTMLDivElement>(null);
-  const [inputAreaHeight, setInputAreaHeight] = useState(0);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  // ResizeObserver で入力エリア高さを追跡
+  const [video, setVideo] = useState('');
+  const [status, setStatus] = useState('待機中');
+  const [active, setActive] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [error, setError] = useState('');
+  const [caption, setCaption] = useState('コメントが届くと、ここに表示されます。');
+  const [queue, setQueue] = useState(0);
+  const [dropped, setDropped] = useState(0);
+  const [download, setDownload] = useState('');
+  const [filename, setFilename] = useState('recording.webm');
+  const session = useRef<LiveSession | null>(null);
+  const recording = useRef<ScreenRecording | null>(null);
+  const pending = useRef<AbortController | null>(null);
+  const busy = useRef(false);
+  const stopping = useRef(false);
+  const mounted = useRef(true);
+  const downloadRef = useRef('');
   useEffect(() => {
-    const el = inputAreaRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => {
-      setInputAreaHeight(el.offsetHeight);
-    });
-    ro.observe(el);
-    setInputAreaHeight(el.offsetHeight);
-    return () => ro.disconnect();
-  }, []);
+    mounted.current = true;
+    const id = setInterval(() => {
+      setReady(!!viewer.model?.vrm && !viewer.error);
+      if (viewer.error) setError(viewer.error);
+    }, 250);
+    const params = new URLSearchParams(location.search);
+    if (params.get('video')) setVideo(params.get('video')!);
+    return () => {
+      mounted.current = false;
+      clearInterval(id);
+      pending.current?.abort();
+      session.current?.stop();
+      viewer.model?.stopSpeaking();
+      void recording.current?.stop();
+      if (downloadRef.current) URL.revokeObjectURL(downloadRef.current);
+    };
+  }, [viewer]);
 
-  useEffect(() => {
-    (async () => {
-      const speakerList = speakers ?? (await loadSpeackers());
-      if (!speakers) setSpeakers(speakerList);
-      // localStorage に保存済みの名前があれば復元、なければ「ずんだもん」→先頭
-      const defaultSpeaker =
-        (selectedSpeakerName ? speakerList.find((s: any) => s.name === selectedSpeakerName) : null) ??
-        speakerList.find((s: any) => s.name === 'ずんだもん') ??
-        speakerList[0] ??
-        null;
-      setSelectedSpeaker(defaultSpeaker);
-    })();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // textarea 高さ自動調整
-  useEffect(() => {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
-  }, [userMessage]);
-
-  const onSendClick = useCallback(async () => {
-    if (!selectedSpeaker || !userMessage.trim() || isProcessing) return;
-
-    const sentMessage = userMessage.trim();
-    const entryId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-
-    setIsProcessing(true);
-    setMessageText('');
-    setCurrentEmotion('neutral');
-    setUserMessage('');
-
-    // ── 「あなた」側を pending 状態で即座に履歴に追加 ──
-    setHistory((prev) => [
-      ...prev,
-      {
-        id: entryId,
-        timestamp: Date.now(),
-        userMessage: sentMessage,
-        speakerName: selectedSpeaker.name,
-        emotion: 'neutral',
-        replyText: '',
-        pending: true,
-      },
-    ]);
-
-    let fullReply = '';
-    let finalEmotion: EmotionType = 'neutral';
-
+  async function stop() {
+    if (stopping.current) return;
+    stopping.current = true;
+    pending.current?.abort();
+    session.current?.stop();
+    session.current = null;
+    viewer.model?.stopSpeaking();
+    const current = recording.current;
+    recording.current = null;
+    if (mounted.current) setStatus('録画を保存しています…');
     try {
-      const groqChatResponse = await fetch(getApiPath(aiProvider), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: sentMessage, locale }),
-      });
-
-      if (!groqChatResponse.ok) {
-        console.error(`${aiProvider} API error:`, groqChatResponse.status, await groqChatResponse.text());
-        // エラー時は pending エントリを削除
-        setHistory((prev) => prev.filter((e) => e.id !== entryId));
+      if (current) {
+        const blob = await current.stop();
+        if (mounted.current) {
+          if (downloadRef.current) URL.revokeObjectURL(downloadRef.current);
+          const url = URL.createObjectURL(blob);
+          downloadRef.current = url;
+          setDownload(url);
+          setFilename(
+            'live-ai-supporter-' + new Date().toISOString().replace(/[:.]/g, '-') + (blob.type.includes('mp4') ? '.mp4' : '.webm'),
+          );
+        }
+      }
+    } finally {
+      stopping.current = false;
+      busy.current = false;
+      if (mounted.current) {
+        setActive(false);
+        setStatus('停止しました');
+      }
+    }
+  }
+  async function start() {
+    if (busy.current) return;
+    busy.current = true;
+    setActive(true);
+    setError('');
+    setDropped(0);
+    const controller = new AbortController();
+    pending.current = controller;
+    let screen: MediaStream | undefined;
+    try {
+      const id = videoIdFromInput(video);
+      const model = viewer.model;
+      if (!model?.vrm) throw new Error('VRMの読み込み完了をお待ちください。');
+      if (!navigator.mediaDevices?.getDisplayMedia || typeof MediaRecorder === 'undefined')
+        throw new Error('画面録画に対応したChrome / EdgeをlocalhostまたはHTTPSで開いてください。');
+      // Both calls happen during the button gesture, before any network await.
+      const resume = model.resumeAudio();
+      const capture = navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+      setStatus('録画する画面を選択してください');
+      await Promise.all([
+        capture.then((value) => {
+          screen = value;
+        }),
+        resume,
+      ]);
+      if (!screen) throw new Error('画面を取得できませんでした。');
+      if (controller.signal.aborted) {
+        screen.getTracks().forEach((t) => t.stop());
         return;
       }
-
-      await speakCharacterStream(
-        selectedSpeaker,
-        groqChatResponse,
-        viewer,
-        (emotion) => {
-          setCurrentEmotion(emotion);
-          finalEmotion = emotion;
+      setStatus('YouTubeに接続しています…');
+      const resolved = (await (await api('resolve?video=' + encodeURIComponent(id), { signal: controller.signal })).json()) as {
+        liveChatId: string;
+        title: string;
+      };
+      if (controller.signal.aborted) {
+        screen.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      if (screen.getVideoTracks()[0]?.readyState !== 'live') throw new Error('画面共有が終了しました。開始し直してください。');
+      recording.current = new ScreenRecording(
+        screen,
+        model.recordingStream!,
+        () => {
+          void stop();
         },
-        (delta) => {
-          fullReply += delta;
-          setMessageText((prev) => prev + delta);
+        () => {
+          setError('録画中にエラーが発生しました。');
+          void stop();
         },
       );
-
-      // ── pending エントリを完成した内容で更新 ──
-      setHistory((prev) => prev.map((e) => (e.id === entryId ? { ...e, emotion: finalEmotion, replyText: fullReply, pending: false } : e)));
+      setStatus('録画・読み上げ中: ' + resolved.title);
+      const live = new LiveSession({
+        poll: async (token, signal) => {
+          const params = new URLSearchParams({ liveChatId: resolved.liveChatId });
+          if (token) params.set('pageToken', token);
+          return (await api('comments?' + params, { signal })).json() as Promise<CommentPage>;
+        },
+        speak: async (comment, signal) => {
+          const response = await api('speech', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: comment.text }),
+            signal,
+          });
+          const buffer = await response.arrayBuffer();
+          if (signal.aborted) return;
+          setCaption(comment.author + '：' + comment.text);
+          await model.speak(buffer, 'neutral');
+        },
+        onQueue: (length, skipped) => {
+          if (mounted.current) {
+            setQueue(length);
+            setDropped(skipped);
+          }
+        },
+        onError: (e) => {
+          if (mounted.current) setError(e instanceof Error ? e.message : String(e));
+          void stop();
+        },
+        onEnd: () => {
+          void stop();
+        },
+      });
+      session.current = live;
+      void live.run();
+    } catch (e) {
+      screen?.getTracks().forEach((t) => t.stop());
+      if (!controller.signal.aborted) {
+        setError(e instanceof Error ? e.message : String(e));
+        await stop();
+      }
+    }
+  }
+  async function testVoice() {
+    if (busy.current) return;
+    busy.current = true;
+    setActive(true);
+    setError('');
+    const controller = new AbortController();
+    pending.current = controller;
+    try {
+      const model = viewer.model;
+      if (!model?.vrm) throw new Error('VRMを読み込み中です。');
+      await model.resumeAudio();
+      const text = 'こんにちは！ライブコメントの読み上げテストなのだ。';
+      setCaption(text);
+      setStatus('音声テスト中');
+      const response = await api('speech', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+        signal: controller.signal,
+      });
+      const buffer = await response.arrayBuffer();
+      if (!controller.signal.aborted) await model.speak(buffer, 'happy');
+    } catch (e) {
+      if (!controller.signal.aborted) setError(e instanceof Error ? e.message : String(e));
     } finally {
-      setIsProcessing(false);
+      if (pending.current === controller) {
+        busy.current = false;
+        setActive(false);
+        setStatus('待機中');
+      }
     }
-  }, [selectedSpeaker, userMessage, isProcessing, viewer, setHistory]);
-
-  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-      e.preventDefault();
-      onSendClick();
-    }
-  };
-
-  const onVrmChange = (url: string) => {
-    viewer.loadVrm(url);
-  };
-
+  }
   return (
-    <div className="font-M_PLUS_2">
-      {/* 背景画像（常に表示、backgroundUrl が空文字でなければ） */}
-      {backgroundUrl && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: -20,
-            backgroundImage: `url(${backgroundUrl})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-          }}
-        />
-      )}
-
-      <VrmViewer />
-      <LocaleToggle />
-
-      {/* 入力エリア高さを渡して履歴パネルが被らないようにする */}
-      <HistoryPanel inputAreaHeight={inputAreaHeight} />
-
-      {/* メッセージウィンドウ */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: inputAreaHeight + 12,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          width: 'min(680px, 92vw)',
-          zIndex: 30,
-        }}
-      >
-        <MessageWindow text={messageText} emotion={currentEmotion} isProcessing={isProcessing} />
-      </div>
-
-      {/* 入力エリア */}
-      <div ref={inputAreaRef} style={inputAreaOuterStyle}>
-        <div style={inputAreaInnerStyle}>
-          {/* ツールバー: ラベル+プルダウンを横一直線に並べる */}
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '8px' }}>
-            <div style={selectorGroupStyle}>
-              <span style={selectorLabelStyle}>{t.labelBackground}</span>
-              <BackgroundSelector onBackgroundChange={setBackgroundUrl} />
-            </div>
-            <div style={selectorGroupStyle}>
-              <span style={selectorLabelStyle}>{t.labelVrm}</span>
-              <VrmSelector onVrmChange={onVrmChange} />
-            </div>
-            <div style={selectorGroupStyle}>
-              <span style={selectorLabelStyle}>{t.labelAi}</span>
-              <AiProviderSelector />
-            </div>
-            <div style={selectorGroupStyle}>
-              <span style={selectorLabelStyle}>{t.labelVoice}</span>
-              <SpeakerSelector currentEmotion={currentEmotion} isProcessing={isProcessing} />
-            </div>
+    <>
+      <Head>
+        <title>Live AI Supporter</title>
+        <meta name="description" content="YouTube LiveのコメントをVTuberが読み上げる配信サポートツール" />
+      </Head>
+      <main className="studio">
+        <VrmViewer />
+        <section className="controls">
+          <p className="eyebrow">VTUBER LIVE ASSISTANT</p>
+          <h1>Live AI Supporter</h1>
+          <p>ライブの声を、キャラクターへ。</p>
+          <label htmlFor="video">YouTube Live URL / 動画ID</label>
+          <input
+            id="video"
+            value={video}
+            disabled={active}
+            onChange={(e) => setVideo(e.target.value)}
+            placeholder="https://www.youtube.com/watch?v=…"
+          />
+          <div className="actions">
+            <button onClick={() => void start()} disabled={active || !ready || !video.trim()}>
+              録画・読み上げ開始
+            </button>
+            <button className="secondary" onClick={() => void stop()} disabled={!active}>
+              停止
+            </button>
+            <button className="secondary" onClick={() => void testVoice()} disabled={active || !ready}>
+              音声テスト
+            </button>
           </div>
-
-          {/* 下段: テキスト入力 */}
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
-            <IconButton
-              iconName="24/Microphone"
-              style={{ backgroundColor: 'rgb(255,97,127)', flexShrink: 0 }}
-              className="bg-secondary hover:bg-secondary-hover active:bg-secondary-press disabled:bg-secondary-disabled"
-              isProcessing={isProcessing}
-              disabled={isProcessing}
-              onClick={onSendClick}
-            />
-
-            <textarea
-              ref={textareaRef}
-              placeholder={t.inputPlaceholder}
-              value={userMessage}
-              onChange={(e) => setUserMessage(e.target.value)}
-              onKeyDown={onKeyDown}
-              disabled={isProcessing}
-              rows={2}
-              style={textareaStyle}
-            />
-
-            <IconButton
-              iconName="24/Send"
-              style={{ backgroundColor: 'rgb(255,97,127)', flexShrink: 0 }}
-              className="bg-secondary hover:bg-secondary-hover active:bg-secondary-press disabled:bg-secondary-disabled"
-              isProcessing={isProcessing}
-              disabled={userMessage.trim().length <= 0 || isProcessing}
-              onClick={onSendClick}
-            />
-          </div>
-        </div>
-      </div>
-    </div>
+          <p role="status">{ready ? status : 'ずんだもんを読み込み中…'}</p>
+          <p className="detail">
+            待機コメント {queue}件 / 混雑時のスキップ {dropped}件
+          </p>
+          {error && (
+            <p role="alert" className="error">
+              {error}
+            </p>
+          )}
+          {download && (
+            <a className="download" href={download} download={filename}>
+              録画ファイルを保存
+            </a>
+          )}
+          <p className="detail">
+            このタブを録画対象に選んでください。音声は自動で録音されます。
+            <br />
+            開始後の新着コメントを読み上げます。YouTubeへの映像送信は行いません。
+          </p>
+        </section>
+        <section className="caption" aria-live="polite">
+          <span>VOICEVOX:ずんだもん</span>
+          <p>{caption}</p>
+        </section>
+      </main>
+    </>
   );
 }
-
-const inputAreaOuterStyle: React.CSSProperties = {
-  position: 'fixed',
-  bottom: 0,
-  left: 0,
-  right: 0,
-  zIndex: 20,
-  backgroundColor: 'rgb(251,226,202)',
-  color: '#000000',
-};
-
-const inputAreaInnerStyle: React.CSSProperties = {
-  marginLeft: 'auto',
-  marginRight: 'auto',
-  maxWidth: '56rem',
-  padding: '10px 16px 12px',
-};
-
-const textareaStyle: React.CSSProperties = {
-  backgroundColor: '#FFFFFF',
-  color: 'rgb(81,64,98)',
-  fontSize: '15px',
-  lineHeight: '1.6',
-  fontWeight: 600,
-  paddingLeft: '14px',
-  paddingRight: '14px',
-  paddingTop: '10px',
-  paddingBottom: '10px',
-  borderRadius: '12px',
-  width: '100%',
-  border: 'none',
-  outline: 'none',
-  resize: 'none',
-  minHeight: '52px',
-  maxHeight: '120px',
-  overflowY: 'auto',
-  fontFamily: 'inherit',
-};
-
-const selectorGroupStyle: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'row',
-  alignItems: 'center',
-  gap: '5px',
-};
-
-const selectorLabelStyle: React.CSSProperties = {
-  fontSize: '10px',
-  fontWeight: 700,
-  color: 'rgb(120, 90, 60)',
-  letterSpacing: '0.08em',
-  paddingLeft: '2px',
-};

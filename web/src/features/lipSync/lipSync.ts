@@ -1,55 +1,52 @@
-interface LipSyncAnalyzeResult {
-  volume: number;
-}
-
-const TIME_DOMAIN_DATA_LENGTH = 2048;
-
 export class LipSync {
-  public readonly audio: AudioContext;
   public readonly analyser: AnalyserNode;
-  public readonly timeDomainData: Float32Array<ArrayBuffer>;
-
-  public constructor(audio: AudioContext) {
-    this.audio = audio;
-
+  public readonly recording: MediaStreamAudioDestinationNode;
+  private readonly data = new Float32Array(2048);
+  private source?: AudioBufferSourceNode;
+  private generation = 0;
+  constructor(public readonly audio: AudioContext) {
     this.analyser = audio.createAnalyser();
-    this.timeDomainData = new Float32Array(TIME_DOMAIN_DATA_LENGTH);
+    this.recording = audio.createMediaStreamDestination();
   }
-
-  public update(): LipSyncAnalyzeResult {
-    this.analyser.getFloatTimeDomainData(this.timeDomainData);
-
-    let volume = 0.0;
-    for (let i = 0; i < TIME_DOMAIN_DATA_LENGTH; i++) {
-      volume = Math.max(volume, Math.abs(this.timeDomainData[i]));
+  update() {
+    this.analyser.getFloatTimeDomainData(this.data);
+    let peak = 0;
+    for (const value of this.data) peak = Math.max(peak, Math.abs(value));
+    const volume = 1 / (1 + Math.exp(-45 * peak + 5));
+    return { volume: volume < 0.1 ? 0 : volume };
+  }
+  stop() {
+    this.generation++;
+    this.source?.stop();
+    this.source = undefined;
+  }
+  async playFromArrayBuffer(buffer: ArrayBuffer, onEnded?: () => void) {
+    const generation = this.generation;
+    await this.audio.resume();
+    const decoded = await this.audio.decodeAudioData(buffer);
+    if (generation !== this.generation) {
+      onEnded?.();
+      return;
     }
-
-    // cook
-    volume = 1 / (1 + Math.exp(-45 * volume + 5));
-    if (volume < 0.1) volume = 0;
-
-    return {
-      volume,
-    };
+    await new Promise<void>((resolve) => {
+      const source = this.audio.createBufferSource();
+      this.source = source;
+      source.buffer = decoded;
+      source.connect(this.audio.destination);
+      source.connect(this.analyser);
+      source.connect(this.recording);
+      source.onended = () => {
+        source.disconnect();
+        if (this.source === source) this.source = undefined;
+        onEnded?.();
+        resolve();
+      };
+      source.start();
+    });
   }
-
-  public async playFromArrayBuffer(buffer: ArrayBuffer, onEnded?: () => void) {
-    const audioBuffer = await this.audio.decodeAudioData(buffer);
-
-    const bufferSource = this.audio.createBufferSource();
-    bufferSource.buffer = audioBuffer;
-
-    bufferSource.connect(this.audio.destination);
-    bufferSource.connect(this.analyser);
-    bufferSource.start();
-    if (onEnded) {
-      bufferSource.addEventListener('ended', onEnded);
-    }
-  }
-
-  public async playFromURL(url: string, onEnded?: () => void) {
-    const res = await fetch(url);
-    const buffer = await res.arrayBuffer();
-    this.playFromArrayBuffer(buffer, onEnded);
+  async playFromURL(url: string, onEnded?: () => void) {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Audio download failed');
+    await this.playFromArrayBuffer(await response.arrayBuffer(), onEnded);
   }
 }

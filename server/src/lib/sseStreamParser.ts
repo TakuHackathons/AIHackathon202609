@@ -11,7 +11,7 @@
  */
 
 export type SseWriter = {
-  write: (data: string) => Promise<void>;
+  write: (data: string) => Promise<unknown>;
 };
 
 export class JsonEmotionTextParser {

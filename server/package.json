@@ -1,9 +1,9 @@
 {
-  "name": "ai-vtuber-voice-communication-sample-server",
+  "name": "live-ai-supporter-server",
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "pnpm --filter ai-vtuber-voice-communication-sample-web build && wrangler dev",
+    "dev": "wrangler dev --ip 127.0.0.1",
     "build": "tsc",
     "deploy:cloudflare": "wrangler deploy",
     "lint": "tsc --noEmit",

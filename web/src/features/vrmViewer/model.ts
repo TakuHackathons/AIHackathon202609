@@ -89,13 +89,23 @@ export class Model {
    */
   public async speak(buffer: ArrayBuffer, expression: EmotionType) {
     this.emoteController?.playEmotion(expression);
-    await new Promise((resolve) => {
-      this._lipSync?.playFromArrayBuffer(buffer, () => {
-        resolve(true);
-      });
-    });
+    if (!this._lipSync) throw new Error('Audio is unavailable');
+    await this._lipSync.playFromArrayBuffer(buffer);
   }
 
+  public disposeAudio() {
+    this._lipSync?.stop();
+    void this._lipSync?.audio.close();
+  }
+  public resumeAudio() {
+    return this._lipSync!.audio.resume();
+  }
+  public get recordingStream() {
+    return this._lipSync?.recording.stream;
+  }
+  public stopSpeaking() {
+    this._lipSync?.stop();
+  }
   public update(delta: number): void {
     if (this._lipSync) {
       const { volume } = this._lipSync.update();

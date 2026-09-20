@@ -1,6 +1,7 @@
 packages:
   - 'web'
   - 'server'
+  - 'packages/*'
 allowBuilds:
   esbuild: false
   sharp: false

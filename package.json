@@ -1,18 +1,22 @@
 {
-  "name": "ai-vtuber-voice-communication-sample-root",
+  "name": "live-ai-supporter-root",
   "version": "1.0.0",
   "private": true,
   "workspaces": [
     "web",
-    "server"
+    "server",
+    "packages/*"
   ],
   "scripts": {
-    "dev:web": "pnpm --filter ai-vtuber-voice-communication-sample-web dev",
-    "dev:server": "pnpm --filter ai-vtuber-voice-communication-sample-web build && pnpm --filter ai-vtuber-voice-communication-sample-server dev",
-    "build:web": "pnpm --filter ai-vtuber-voice-communication-sample-web build",
-    "deploy:cloudflare": "pnpm build:web && pnpm --filter ai-vtuber-voice-communication-sample-server deploy:cloudflare",
-    "lint": "pnpm --filter ai-vtuber-voice-communication-sample-web lint",
-    "format": "prettier --write \"**/*.{ts,tsx,js,jsx}\" --ignore-path .gitignore"
+    "dev:web": "pnpm --filter live-ai-supporter-web dev",
+    "dev:server": "pnpm build:web && pnpm --filter live-ai-supporter-server dev",
+    "build:web": "pnpm --filter live-ai-supporter-web build",
+    "deploy:cloudflare": "pnpm build:web && pnpm --filter live-ai-supporter-server deploy:cloudflare",
+    "lint": "pnpm --filter live-ai-supporter-web lint && pnpm --filter live-ai-supporter-server lint",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx}\" --ignore-path .gitignore",
+    "dev": "pnpm dev:server",
+    "build": "pnpm build:web && pnpm --filter live-ai-supporter-server build",
+    "test": "pnpm --filter live-ai-supporter-web exec tsx --test ../tests/*.test.ts"
   },
   "devDependencies": {
     "prettier": "^3.8.3"
