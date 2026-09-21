@@ -7,17 +7,20 @@
     "build": "tsc",
     "deploy:cloudflare": "wrangler deploy",
     "lint": "tsc --noEmit",
+    "test:orca:e2e": "tsx scripts/test-orca-e2e.ts",
     "wrangler": "wrangler",
     "format": "prettier --config .prettierrc --write \"src/**/*.{ts,js}\""
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.0",
     "groq-sdk": "^1.2.1",
-    "hono": "^4.12.23"
+    "hono": "^4.12.23",
+    "openai": "^7.20.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260530.1",
     "prettier": "^3.8.3",
+    "tsx": "^4.22.4",
     "typescript": "^6.0.3",
     "wrangler": "^4.95.0"
   }

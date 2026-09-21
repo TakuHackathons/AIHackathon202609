@@ -5,6 +5,7 @@ import { groqRouter } from './routes/groq';
 import { geminiRouter } from './routes/gemini';
 import { liveRouter } from './routes/live';
 import { voicevoxRouter } from './routes/voicevox';
+import { orcaRouter } from './routes/orca';
 
 const app = new Hono<{ Bindings: Bindings }>();
 
@@ -25,5 +26,6 @@ api.route('/groq', groqRouter);
 api.route('/gemini', geminiRouter);
 api.route('/voicevox', voicevoxRouter);
 api.route('/live', liveRouter);
+api.route('/orca', orcaRouter);
 
 export default app;
