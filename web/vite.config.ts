@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 export default defineConfig({
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   server: {
-    host: '127.0.0.1',
+    host: true,
     port: 3000,
     strictPort: true,
     proxy: { '/api': 'http://127.0.0.1:8787' },

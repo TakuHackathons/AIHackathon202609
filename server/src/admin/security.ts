@@ -38,16 +38,12 @@ export async function verifyPassword(password: string, encoded: string | null) {
   for (let i = 0; i < a.length; i++) diff |= a[i] ^ (b[i] ?? 0);
   return diff === 0;
 }
-const localAdminOrigins = new Set(['http://localhost:3000', 'http://127.0.0.1:3000']);
 export function origin(c: AdminContext) {
-  const requested = c.req.header('Origin');
-  const raw = c.env.ADMIN_ORIGIN || (requested && localAdminOrigins.has(requested) ? requested : 'http://localhost:3000');
+  const raw = c.req.header('Origin') ?? fail(400, 'Originヘッダーが必要です。');
   const url = new URL(raw);
-  if (url.origin !== raw || (url.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(url.hostname)))
-    fail(503, 'ADMIN_ORIGINを正しい公開URLに設定してください。');
+  if (url.origin !== raw) fail(400, 'Originが正しくありません。');
   return { origin: url.origin, rpID: url.hostname, secure: url.protocol === 'https:' };
-}
-export async function body(c: AdminContext): Promise<Record<string, unknown>> {
+}export async function body(c: AdminContext): Promise<Record<string, unknown>> {
   try {
     const value: unknown = await c.req.json();
     if (!value || typeof value !== 'object' || Array.isArray(value)) fail(400, '入力形式が正しくありません。');

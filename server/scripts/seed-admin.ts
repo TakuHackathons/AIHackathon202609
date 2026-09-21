@@ -1,16 +1,14 @@
-import { execFileSync } from 'node:child_process';
-import { rmSync, writeFileSync } from 'node:fs';
+// @ts-expect-error Node 22 provides node:sqlite, but the installed type definitions do not yet declare it.
+import { DatabaseSync } from 'node:sqlite';
+import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { passwordHash } from '../src/admin/security';
-const [target] = process.argv.slice(2);
-if (!['--local', '--remote'].includes(target)) throw new Error('Use --local or --remote.');
-const seed = { schoolName: 'Sample School', schoolCode: 'SAMPLE-SCHOOL', superAdminUsername: 'super-admin', superAdminName: 'Operations Admin', superAdminPassword: 'initial-super-admin-password' };
-const literal = (input: string | number) => `'${String(input).replaceAll("'", "''")}'`;
-async function main() {
-  const now = Date.now(), password = await passwordHash(seed.superAdminPassword);
-  const command = `INSERT OR IGNORE INTO schools (name, code, address, phone, created_at, updated_at) VALUES (${literal(seed.schoolName)}, ${literal(seed.schoolCode)}, '', '', ${now}, ${now});\nINSERT OR IGNORE INTO users (school_id, username, name, role, password_hash, password_expires_at, auth_version, created_at, updated_at) VALUES (NULL, ${literal(seed.superAdminUsername)}, ${literal(seed.superAdminName)}, 'super_admin', ${literal(password)}, ${now + 7 * 86_400_000}, 0, ${now}, ${now});`;
-  const sqlFile = resolve(process.cwd(), '.seed-admin.sql'); writeFileSync(sqlFile, command, 'utf8');
-  try { execFileSync('pnpm', ['exec', 'wrangler', 'd1', 'execute', 'DB', target!, '--file', '.seed-admin.sql'], { cwd: new URL('../', import.meta.url), stdio: 'inherit', shell: process.platform === 'win32' }); } finally { rmSync(sqlFile, { force: true }); }
-  console.log(`Seeded ${seed.schoolName} and super admin ${seed.superAdminUsername}.`);
+
+const directory = resolve(process.cwd(), '.wrangler', 'state', 'v3', 'd1', 'miniflare-D1DatabaseObject');
+const files = readdirSync(directory).filter((name) => name.endsWith('.sqlite') && name !== 'metadata.sqlite');
+if (files.length !== 1) throw new Error('Could not identify the local D1 SQLite database.');
+const database = new DatabaseSync(resolve(directory, files[0]));
+try {
+  database.exec(readFileSync(resolve(process.cwd(), 'seeds', 'admin.sql'), 'utf8'));
+} finally {
+  database.close();
 }
-void main();

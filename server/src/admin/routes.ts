@@ -26,8 +26,7 @@ adminRouter.use('*', bodyLimit({ maxSize: 65_536, onError: (c) => c.json({ error
 adminRouter.use('*', async (c, next) => {
   c.header('Cache-Control', 'no-store');
   if (!c.env.DB) return c.json({ error: 'Database is not configured.' }, 503);
-  if (!['GET', 'HEAD'].includes(c.req.method) && c.req.header('Origin') !== origin(c).origin)
-    return c.json({ error: 'Invalid origin.' }, 403);
+  if (!['GET', 'HEAD'].includes(c.req.method) && !c.req.header('Origin')) return c.json({ error: 'Origin header is required.' }, 400);
   if (c.req.path.includes('/auth/') && c.req.method === 'POST')
     await rateLimit(c, 'ip:' + (c.req.header('CF-Connecting-IP') ?? 'local'), 40, 60_000);
   await next();

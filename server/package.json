@@ -14,8 +14,8 @@
     "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
     "db:drop:all:local": "node --no-warnings --import tsx scripts/drop-local-db.ts",
     "db:migrate:reset": "pnpm run db:drop:all:local && pnpm run db:migrate:local",
-    "db:seed:local": "tsx scripts/seed-admin.ts --local",
-    "db:seed:remote": "tsx scripts/seed-admin.ts --remote",
+    "db:seed:local": "node --no-warnings --import tsx scripts/seed-admin.ts",
+    "db:seed:remote": "wrangler d1 execute DB --remote --file seeds/admin.sql",
     "delete:school": "tsx scripts/delete-school.ts"
   },
   "dependencies": {
