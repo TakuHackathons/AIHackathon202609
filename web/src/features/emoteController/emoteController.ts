@@ -13,8 +13,8 @@ export class EmoteController {
     this._expressionController = new ExpressionController(vrm, camera);
   }
 
-  public playEmotion(preset: VRMExpressionPresetName) {
-    this._expressionController.playEmotion(preset);
+  public playEmotion(preset: VRMExpressionPresetName, strength = 1) {
+    this._expressionController.playEmotion(preset, strength);
   }
 
   public lipSync(preset: VRMExpressionPresetName, value: number) {

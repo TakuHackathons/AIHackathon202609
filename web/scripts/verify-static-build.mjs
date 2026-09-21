@@ -23,10 +23,10 @@ assert.ok(
 );
 for (const asset of assets) assert.ok(existsSync(path.join(client, asset.slice(1))), 'Missing asset: ' + asset);
 const manifest = JSON.parse(readFileSync(path.join(client, 'assets-manifest.json'), 'utf8'));
-assert.deepEqual(
-  manifest.vrm.map((model) => model.path),
-  ['/vrm/Zundamon_VRM_10.vrm'],
-);
+assert.ok(manifest.vrm.some((model) => model.path === '/vrm/Zundamon_VRM_10.vrm'), 'Missing sample VRM');
+for (const model of manifest.vrm) {
+  assert.ok(existsSync(path.join(client, model.path.slice(1))), 'Missing VRM: ' + model.path);
+}
 assert.ok(existsSync(path.join(client, 'vrm/Zundamon_VRM_10.vrm')));
 const { config, error } = ts.parseConfigFileTextToJson(
   'wrangler.jsonc',

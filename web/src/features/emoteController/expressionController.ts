@@ -10,6 +10,7 @@ import { AutoBlink } from './autoBlink';
  * 前の表情が終わるまで待ってから表情適用する役割を持っている。
  */
 export class ExpressionController {
+  private emotionVersion = 0;
   private _autoLookAt: AutoLookAt;
   private _autoBlink?: AutoBlink;
   private _expressionManager?: VRMExpressionManager;
@@ -28,7 +29,8 @@ export class ExpressionController {
     }
   }
 
-  public playEmotion(preset: VRMExpressionPresetName) {
+  public playEmotion(preset: VRMExpressionPresetName, strength = 1) {
+    const version = ++this.emotionVersion;
     if (this._currentEmotion != 'neutral') {
       this._expressionManager?.setValue(this._currentEmotion, 0);
     }
@@ -39,10 +41,10 @@ export class ExpressionController {
       return;
     }
 
-    const t = this._autoBlink?.setEnable(false) || 0;
+    const t = this._autoBlink?.setEnable(strength < 1) || 0;
     this._currentEmotion = preset;
     setTimeout(() => {
-      this._expressionManager?.setValue(preset, 1);
+      if (version === this.emotionVersion) this._expressionManager?.setValue(preset, strength);
     }, t * 1000);
   }
 

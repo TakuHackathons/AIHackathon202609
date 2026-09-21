@@ -88,6 +88,7 @@ export default function Studio() {
   const [audio, setAudio] = useState(true);
   const [subtitles, setSubtitles] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [thinking, setThinking] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [ready, setReady] = useState(false);
   const [caption, setCaption] = useState(greeting);
@@ -123,7 +124,14 @@ export default function Studio() {
     if (list.current) list.current.scrollTop = list.current.scrollHeight;
   }, [messages]);
 
+  useEffect(() => {
+    viewer.model?.setThinking(thinking);
+    return () => viewer.model?.setThinking(false);
+  }, [viewer, ready, thinking]);
+
   function stop() {
+    setThinking(false);
+    viewer.model?.setThinking(false);
     active.current?.abort();
     speech.current?.cancel();
     speech.current = null;
@@ -170,6 +178,7 @@ export default function Studio() {
     const controller = new AbortController();
     active.current = controller;
     setBusy(true);
+    setThinking(true);
     setError('');
     setNotice('');
     setSummary('');
@@ -205,6 +214,7 @@ export default function Studio() {
       for await (const event of readChatStream(response, controller.signal)) {
         if (event.type === 'error') throw new Error(event.message);
         if (event.type === 'delta') {
+          if (event.text.trim()) setThinking(false);
           output += event.text;
           if (output.length > 12000) throw new Error('回答が長くなったため停止しました。');
           setMessages((old) => old.map((m) => (m.id === answerId ? { ...m, content: output } : m)));
@@ -232,6 +242,7 @@ export default function Studio() {
         active.current = null;
         speech.current = null;
         if (mounted.current) {
+          setThinking(false);
           setBusy(false);
           setSpeaking(false);
         }
@@ -332,8 +343,8 @@ export default function Studio() {
               AI相談アシスタント 水野先生
             </span>
             <div className="stage-tags">
-              <span>表情：{speaking ? 'やさしい笑顔' : 'おだやか'}</span>
-              <span>モーション：{speaking ? 'お話し中' : '待機中'}</span>
+              <span>表情：{thinking ? '考え中' : speaking ? 'やさしい笑顔' : 'おだやか'}</span>
+              <span>モーション：{thinking ? '首をかしげて考え中' : speaking ? 'お話し中' : '待機中'}</span>
             </div>
           </div>
           <VrmViewer />

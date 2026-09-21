@@ -4,6 +4,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { VRMAnimation } from '../../lib/VRMAnimation/VRMAnimation';
 import { VRMLookAtSmootherLoaderPlugin } from '../../lib/VRMLookAtSmootherLoaderPlugin/VRMLookAtSmootherLoaderPlugin';
 import { LipSync } from '../lipSync/lipSync';
+import { ThinkingMotion } from '../emoteController/thinkingMotion';
 import { EmoteController } from '../emoteController/emoteController';
 
 type TalkStyle = ['talk', 'happy', 'sad', 'angry', 'fear', 'surprised'][number];
@@ -35,6 +36,8 @@ export class Model {
 
   private _lookAtTargetParent: Object3D;
   private _lipSync?: LipSync;
+  private thinking = false;
+  private thinkingMotion?: ThinkingMotion;
 
   constructor(lookAtTargetParent: Object3D) {
     this._lookAtTargetParent = lookAtTargetParent;
@@ -59,9 +62,14 @@ export class Model {
     this.mixer = new AnimationMixer(vrm.scene);
 
     this.emoteController = new EmoteController(vrm, this._lookAtTargetParent);
+    const head = vrm.humanoid.getNormalizedBoneNode('head');
+    if (head) this.thinkingMotion = new ThinkingMotion(head);
   }
 
   public unLoadVrm() {
+    this.setThinking(false);
+    this.thinkingMotion?.restore();
+    this.thinkingMotion = undefined;
     if (this.vrm) {
       VRMUtils.deepDispose(this.vrm.scene);
       this.vrm = null;
@@ -85,9 +93,17 @@ export class Model {
   }
 
   /**
-   * 音声を再生し、リップシンクを行う
+   * 回答待ちの表情とモーションを切り替える
    */
+  public setThinking(active: boolean) {
+    if (this.thinking === active) return;
+    this.thinking = active;
+    this.thinkingMotion?.setActive(active);
+    this.emoteController?.playEmotion(active ? 'sad' : 'neutral', active ? 0.3 : 1);
+  }
+
   public async speak(buffer: ArrayBuffer, expression: EmotionType) {
+    this.setThinking(false);
     this.emoteController?.playEmotion(expression);
     if (!this._lipSync) throw new Error('Audio is unavailable');
     await this._lipSync.playFromArrayBuffer(buffer);
@@ -110,7 +126,9 @@ export class Model {
     }
 
     this.emoteController?.update(delta);
+    this.thinkingMotion?.restore();
     this.mixer?.update(delta);
+    this.thinkingMotion?.update(delta);
     this.vrm?.update(delta);
   }
 }
