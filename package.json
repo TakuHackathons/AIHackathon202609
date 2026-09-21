@@ -13,7 +13,7 @@
     "build:web": "pnpm --filter live-ai-supporter-web build",
     "deploy:cloudflare": "pnpm build:web && pnpm --filter live-ai-supporter-server deploy:cloudflare",
     "lint": "pnpm --filter live-ai-supporter-web lint && pnpm --filter live-ai-supporter-server lint",
-    "format": "prettier --write \"**/*.{ts,tsx,js,jsx}\" --ignore-path .gitignore",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx}\" --ignore-path .gitignore --ignore-path .prettierignore",
     "dev": "pnpm dev:server",
     "build": "pnpm build:web && pnpm --filter live-ai-supporter-server build",
     "test": "pnpm --filter live-ai-supporter-web exec tsx --test ../tests/*.test.ts",
