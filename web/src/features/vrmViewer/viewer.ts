@@ -30,12 +30,17 @@ export class Viewer {
     this._scene = scene;
 
     // light
-    const directionalLight = new DirectionalLight(0xffffff, 1);
+    const directionalLight = new DirectionalLight(0xffffff, 1.2);
     directionalLight.position.set(1.0, 1.0, 1.0).normalize();
     scene.add(directionalLight);
 
-    const ambientLight = new AmbientLight(0xffffff, 1);
+    const ambientLight = new AmbientLight(0xffffff, 1.6);
     scene.add(ambientLight);
+
+    // 主光源の反対側から補助光を当て、顔や体の暗い部分を和らげる。
+    const fillLight = new DirectionalLight(0xffffff, 0.4);
+    fillLight.position.set(-1.0, 0.5, 2.0).normalize();
+    scene.add(fillLight);
 
     // animate — THREE.Timer は Clock の後継でdeprecate警告が出ない
     this._timer = new Timer();
