@@ -100,8 +100,8 @@ export class Viewer {
     this._renderer.setPixelRatio(window.devicePixelRatio);
 
     // camera
-    this._camera = new PerspectiveCamera(28.0, width / height, 0.1, 20.0);
-    this._camera.position.set(0, 1.3, 2.5);
+    this._camera = new PerspectiveCamera(20.0, width / height, 0.1, 20.0);
+    this._camera.position.set(0, 1.3, 1.5);
     this._cameraControls?.target.set(0, 1.3, 0);
     this._cameraControls?.update();
     // camera controls
@@ -139,8 +139,8 @@ export class Viewer {
 
     if (headNode) {
       const headWPos = headNode.getWorldPosition(new Vector3());
-      this._camera?.position.set(headWPos.x, headWPos.y - 0.2, 2.5);
-      this._cameraControls?.target.set(headWPos.x, headWPos.y - 0.25, headWPos.z);
+      this._camera?.position.set(headWPos.x, headWPos.y, headWPos.z + 1.5);
+      this._cameraControls?.target.set(headWPos.x, headWPos.y, headWPos.z);
       this._cameraControls?.update();
     }
   }
