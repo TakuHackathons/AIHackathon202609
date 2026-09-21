@@ -1,115 +1,74 @@
 # よりそいAI相談室
 
-学習・進路・学校生活の相談に、3Dキャラクターが応えるチャットサービスです。OrcaRouterから届く回答を表示しながら、文ごとにVOICEVOXで音声を生成して順番に再生します。キャラクターは音声に合わせて口を動かします。音声はVOICEVOXのずんだもんを使用しています。
+学習・進路・学校生活の相談に、3Dキャラクターが応えるチャットサービスです。
 
 ## ローカル環境の起動
 
-Node.js（使用するViteに対応したバージョン）、pnpm、Dockerを用意し、Dockerを起動してください。AIへの接続にはOrcaRouterのAPIキーが必要です。以下はすべてプロジェクトルートで実行します。
+Node.js、pnpm、Dockerを用意します。すべてプロジェクトルートで実行します。
 
-### 1. 依存関係をインストールする
+    pnpm install
+    pnpm --filter live-ai-supporter-server db:migrate:local
 
-pnpmが未インストールの場合は、先に `npm install --global pnpm@11` を実行します。
+server/.dev.vars.example をコピーして server/.dev.vars を作り、VOICEVOX・OrcaRouter・管理画面の値を設定します。
 
-```sh
-pnpm install
-```
+    VOICEVOX_API_ROOT_URL=http://127.0.0.1:50021
+    ORCAROUTER_API_KEY=
+    ORCAROUTER_MODEL=openai/gpt-5
+    ORCAROUTER_BASE_URL=https://api.orcarouter.ai/v1
+    ADMIN_ORIGIN=http://localhost:3000
+    SUPER_ADMIN_USERNAME=super-admin
+    SUPER_ADMIN_NAME=運用管理者
+    SUPER_ADMIN_PASSWORD=初回ログイン用の十分に長いパスワード
 
-### 2. 環境変数を設定する
+SUPER_ADMIN_* は、D1にsuper adminがまだいない最初のアクセス時だけ使われます。登録後はPasskeyを登録するため、初回パスワードではログインできなくなります。
 
-`server/.dev.vars.example` をコピーして `server/.dev.vars` を作り、次の値を設定します。既存ファイルがある場合は編集してください。
+VOICEVOXを起動します。
 
-```dotenv
-VOICEVOX_API_ROOT_URL=http://127.0.0.1:50021
-ORCAROUTER_API_KEY=取得したAPIキー
-ORCAROUTER_MODEL=openai/gpt-5
-ORCAROUTER_BASE_URL=https://api.orcarouter.ai/v1
-```
+    docker pull voicevox/voicevox_engine:cpu-latest
+    docker run --rm --name yorisoi-voicevox -p 127.0.0.1:50021:50021 voicevox/voicevox_engine:cpu-latest
 
-モデルにはOrcaRouterで利用できるResponses API対応モデルを指定します。APIキーはフロントエンドには設定しません。
+別のターミナルでWorkerとWebを起動します。
 
-### 3. VOICEVOXを起動する
+    pnpm dev:server
+    pnpm dev:web
 
-ターミナルを3つ使います。**ターミナル1**でCPU版エンジンを起動します。
+相談画面は http://localhost:3000 、教員管理画面は http://localhost:3000/admin/ です。
 
-```sh
-docker pull voicevox/voicevox_engine:cpu-latest
-docker run --rm --name live-ai-supporter-voicevox -p 127.0.0.1:50021:50021 voicevox/voicevox_engine:cpu-latest
-```
+## 教員管理
 
-http://127.0.0.1:50021/version を開き、バージョンが表示されるまで待ちます。
+管理画面はPasskey認証を使います。初回だけ、管理者から伝えられたユーザー名と初回パスワードでログインし、Passkeyを登録します。登録後はパスワードでログインできません。
 
-### 4. バックエンドを起動する
-
-**ターミナル2**で実行します。
-
-```sh
-pnpm dev:server
-```
-
-Webのビルド後、Honoが http://127.0.0.1:8787 で起動します。http://127.0.0.1:8787/api で `"status": "ok"` を確認できます。
-
-### 5. フロントエンドを起動する
-
-**ターミナル3**で実行します。
-
-```sh
-pnpm dev:web
-```
-
-ブラウザで **http://localhost:3000** を開きます。使用中は3つのターミナルを開いたままにしてください。
-
-### 6. 相談して動作を確認する
-
-1. キャラクターの表示を待ち、入力欄に「勉強の計画を一緒に考えて」と入力して送信します。
-2. 回答が順次表示され、キャラクターが読み上げながら口を動かすことを確認します。
-3. 続けて質問すると、それまでの会話を踏まえた回答が届きます。
-4. 音声・字幕は画面上部で切り替えられます。回答中の停止ボタンで生成と再生を止められます。
-5. 「相談をまとめる」で要約を作り、コピーして共有できます。
-
-会話は現在の画面内で保持します。ページを再読み込みするとリセットされます。相談内容と直近の会話履歴は回答生成のためOrcaRouterへ、読み上げる文章は設定したVOICEVOXへ送られます。
-
-### 終了・再起動
-
-WebとHonoは各ターミナルで `Ctrl+C` を押して停止します。VOICEVOXは次のコマンドで停止します。
-
-```sh
-docker stop live-ai-supporter-voicevox
-```
-
-次回はDockerを起動し、手順3〜5を実行します。取得済みなら `docker pull` は省略できます。
-
-## 構成
-
-| ディレクトリ | 内容 |
+| role | 操作できる範囲 |
 | --- | --- |
-| `web/` | TanStack StartのSSG画面、チャット、VRM表示・リップシンク |
-| `server/` | Hono、OrcaRouterの回答ストリーム、VOICEVOX音声合成 |
-| `packages/core/` | SSE解析、文分割、音声の先行生成と順次再生 |
+| super_admin | 全学校の登録・編集、全教員の管理 |
+| admin | 所属学校の編集、所属学校の教員の招待・編集・削除・Passkeyリセット |
+| general | 自分の教員情報とPasskeyの管理 |
 
-音声は文ごとのWAVを先行生成する方式です。回答全文の完成を待たずに再生を始め、最大2文分の生成を進めながら発話順を保ちます。
+学校を登録すると、その学校の最初のadmin教員も同時に作成されます。教員は最大10個のPasskeyを登録でき、設定画面から追加・削除できます。端末紛失時のPasskeyリセットは同じ学校の管理者、またはsuper adminが行います。
+
+相談内容・要約は管理画面へ保存・公開しません。保存によるトークン削減や精度向上が確認できる設計ではないため、会話を永続化していません。
+
+学校の削除は管理画面にはありません。誤操作を避けるため、運用スクリプトだけで削除します。
+
+    pnpm --filter live-ai-supporter-server delete:school -- <school-id> --local
+    pnpm --filter live-ai-supporter-server delete:school -- <school-id> --remote
+
+## Cloudflare D1とデプロイ
+
+Workerを初めてデプロイする前にD1を作成し、server/wrangler.jsonc の d1_databases[0].database_id に作成結果のIDを設定します。
+
+    pnpm --filter live-ai-supporter-server exec wrangler d1 create empathy-ai-companion-admin
+    pnpm --filter live-ai-supporter-server db:migrate:remote
+    pnpm --filter live-ai-supporter-server exec wrangler secret put SUPER_ADMIN_PASSWORD
+    pnpm --filter live-ai-supporter-server exec wrangler secret put ORCAROUTER_API_KEY
+    pnpm --filter live-ai-supporter-server exec wrangler secret put VOICEVOX_API_ROOT_URL
+    pnpm deploy:cloudflare
+
+本番では ADMIN_ORIGIN を管理画面の完全なHTTPSオリジンに設定します。Passkeyはこのオリジンとドメインに結び付くため、登録後にドメインを変更する場合は新しいPasskeyの登録が必要です。
 
 ## テスト・ビルド
 
-```sh
-pnpm lint
-pnpm test
-pnpm build
-```
-
-## Cloudflare Workersへのデプロイ
-
-静的フロントエンドとHono APIを、`server/wrangler.jsonc` の1つのWorkerとして配信します。
-
-```sh
-pnpm deploy:check
-pnpm --filter live-ai-supporter-server exec wrangler login
-pnpm --filter live-ai-supporter-server exec wrangler secret put ORCAROUTER_API_KEY
-pnpm --filter live-ai-supporter-server exec wrangler secret put ORCAROUTER_MODEL
-pnpm --filter live-ai-supporter-server exec wrangler secret put ORCAROUTER_BASE_URL
-pnpm --filter live-ai-supporter-server exec wrangler secret put VOICEVOX_API_ROOT_URL
-pnpm deploy:cloudflare
-```
-
-本番のVOICEVOX URLにはCloudflareから接続できるエンジンを指定します。`server/.dev.vars` はローカル開発専用です。
-
-音声・モデルには各配布元の利用条件が適用されます。画面に `VOICEVOX:ずんだもん` を表示しています。
+    pnpm lint
+    pnpm test
+    pnpm build
+    pnpm deploy:check

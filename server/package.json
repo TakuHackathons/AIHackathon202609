@@ -9,16 +9,22 @@
     "lint": "tsc --noEmit",
     "test:orca:e2e": "tsx scripts/test-orca-e2e.ts",
     "wrangler": "wrangler",
-    "format": "prettier --config .prettierrc --write \"src/**/*.{ts,js}\""
+    "format": "prettier --config .prettierrc --write \"src/**/*.{ts,js}\"",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
+    "delete:school": "tsx scripts/delete-school.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.0",
+    "@simplewebauthn/server": "^14.0.2",
+    "drizzle-orm": "^0.45.2",
     "groq-sdk": "^1.2.1",
     "hono": "^4.12.23",
     "openai": "^7.20.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260530.1",
+    "drizzle-kit": "^0.31.10",
     "prettier": "^3.8.3",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3",
