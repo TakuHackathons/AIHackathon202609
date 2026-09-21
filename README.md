@@ -11,7 +11,7 @@ Node.js、pnpm、Dockerを用意します。すべてプロジェクトルート
 server/.dev.vars.example を server/.dev.vars としてコピーし、server/.dev.vars の `SEED_SUPER_ADMIN_PASSWORD` に、初回ログイン用の十分に長いパスワードを設定します。続けてマイグレーションと seed を実行します。
 
     pnpm --filter live-ai-supporter-server db:migrate:local
-    pnpm --filter live-ai-supporter-server db:seed -- --local
+    pnpm --filter live-ai-supporter-server db:seed:local
 
 seed は `SEED_SCHOOL_NAME` と `SEED_SCHOOL_CODE` の学校、学校に所属しない運用者 `super_admin` を作成します。Passkey 登録前だけ、`SEED_SUPER_ADMIN_USERNAME` と `SEED_SUPER_ADMIN_PASSWORD` でログインできます。二度目以降の実行では既存データを変更しません。
 VOICEVOXを起動します。
@@ -51,7 +51,7 @@ Workerを初めてデプロイする前にD1を作成し、server/wrangler.jsonc
 
     pnpm --filter live-ai-supporter-server exec wrangler d1 create empathy-ai-companion-admin
     pnpm --filter live-ai-supporter-server db:migrate:remote
-    pnpm --filter live-ai-supporter-server db:seed -- --remote
+    pnpm --filter live-ai-supporter-server db:seed:remote
     pnpm --filter live-ai-supporter-server exec wrangler secret put ORCAROUTER_API_KEY
     pnpm --filter live-ai-supporter-server exec wrangler secret put VOICEVOX_API_ROOT_URL
     pnpm deploy:cloudflare

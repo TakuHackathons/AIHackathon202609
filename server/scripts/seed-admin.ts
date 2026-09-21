@@ -27,6 +27,7 @@ const required = (name: string) => {
 };
 const literal = (input: string | number) => `'${String(input).replaceAll("'", "''")}'`;
 
+async function main() {
 const now = Date.now();
 const schoolId = '8a965872-2a55-4c4e-87cf-fdf58d484d8c';
 const superAdminId = 'c16ba58e-688a-4da2-b8df-775c2b1166c5';
@@ -49,3 +50,5 @@ execFileSync('pnpm', ['exec', 'wrangler', 'd1', 'execute', 'DB', target!, '--com
   shell: process.platform === 'win32',
 });
 console.log(`Seeded ${schoolName} and super admin ${superAdminUsername}.`);
+}
+void main();

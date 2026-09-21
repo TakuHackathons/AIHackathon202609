@@ -12,7 +12,8 @@
     "format": "prettier --config .prettierrc --write \"src/**/*.{ts,js}\"",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
-    "db:seed": "tsx scripts/seed-admin.ts",
+    "db:seed:local": "tsx scripts/seed-admin.ts --local",
+    "db:seed:remote": "tsx scripts/seed-admin.ts --remote",
     "delete:school": "tsx scripts/delete-school.ts"
   },
   "dependencies": {
