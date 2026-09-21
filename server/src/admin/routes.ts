@@ -22,28 +22,10 @@ import {
 
 export const adminRouter = new Hono<AdminEnv>();
 
-async function bootstrapSuperAdmin(c: AdminContext) {
-  if (!c.env.SUPER_ADMIN_USERNAME || !c.env.SUPER_ADMIN_NAME || !c.env.SUPER_ADMIN_PASSWORD) return;
-  const db = database(c.env);
-  const found = await db.select({ id: users.id }).from(users).where(eq(users.role, 'super_admin')).limit(1);
-  if (found.length) return;
-  const now = Date.now();
-  await db.insert(users).values({
-    id: crypto.randomUUID(),
-    username: c.env.SUPER_ADMIN_USERNAME.toLowerCase(),
-    name: c.env.SUPER_ADMIN_NAME,
-    role: 'super_admin',
-    passwordHash: await passwordHash(c.env.SUPER_ADMIN_PASSWORD),
-    passwordExpiresAt: now + 7 * 86_400_000,
-    createdAt: now,
-    updatedAt: now,
-  });
-}
 adminRouter.use('*', bodyLimit({ maxSize: 65_536, onError: (c) => c.json({ error: 'Request body is too large.' }, 413) }));
 adminRouter.use('*', async (c, next) => {
   c.header('Cache-Control', 'no-store');
   if (!c.env.DB) return c.json({ error: 'Database is not configured.' }, 503);
-  await bootstrapSuperAdmin(c);
   if (!['GET', 'HEAD'].includes(c.req.method) && c.req.header('Origin') !== origin(c).origin)
     return c.json({ error: 'Invalid origin.' }, 403);
   if (c.req.path.includes('/auth/') && c.req.method === 'POST')

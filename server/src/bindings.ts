@@ -7,7 +7,4 @@ export type Bindings = {
   ORCAROUTER_MODEL?: string;
   ORCAROUTER_BASE_URL?: string;
   ADMIN_ORIGIN?: string;
-  SUPER_ADMIN_USERNAME?: string;
-  SUPER_ADMIN_NAME?: string;
-  SUPER_ADMIN_PASSWORD?: string;
 };
