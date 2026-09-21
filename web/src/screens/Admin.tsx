@@ -59,6 +59,7 @@ export default function Admin() {
     [editing, setEditing] = useState<string | null>(null),
     [schoolEditing, setSchoolEditing] = useState<School | null>(null);
   const [profile, setProfile] = useState({ name: '', email: '', department: '', subjects: '', responsibilities: '' });
+  const [passwordLoginVisible, setPasswordLoginVisible] = useState(false);
   const manager = me?.user.role === 'super_admin' || me?.user.role === 'admin';
   const superAdmin = me?.user.role === 'super_admin';
 
@@ -110,10 +111,23 @@ export default function Admin() {
   };
   const passkeyLogin = () =>
     run(async () => {
-      const options = await api('auth/authentication/options', { method: 'POST', body: '{}' });
-      const response = await startAuthentication({ optionsJSON: options });
-      await api('auth/authentication/verify', { method: 'POST', body: JSON.stringify({ response }) });
-      await refresh();
+      const result = await api('auth/authentication/options', { method: 'POST', body: '{}' });
+      const { passwordLoginAvailable, ...options } = result;
+      if (passwordLoginAvailable) {
+        setPasswordLoginVisible(true);
+        return;
+      }
+      try {
+        const response = await startAuthentication({ optionsJSON: options });
+        await api('auth/authentication/verify', { method: 'POST', body: JSON.stringify({ response }) });
+        await refresh();
+      } catch (error) {
+        if (error instanceof Error && error.name === 'NotAllowedError') {
+          setPasswordLoginVisible(true);
+          return;
+        }
+        throw error;
+      }
     });
   const passwordLogin = (event: FormEvent) => {
     event.preventDefault();
@@ -142,7 +156,7 @@ export default function Admin() {
     event.preventDefault();
     void run(async () => {
       const result = await api('schools', { method: 'POST', body: JSON.stringify(schoolForm) });
-      setNotice('学校と管理者を登録しました。初回パスワード: ' + result.temporaryPassword);
+      setNotice('学校と管理者を登録しました。パスワード: ' + result.temporaryPassword);
       setSchoolForm(initialSchool);
       await refresh();
     });
@@ -177,7 +191,7 @@ export default function Admin() {
           method: 'POST',
           body: JSON.stringify({ ...teacherForm, schoolId: superAdmin ? teacherForm.schoolId : me?.user.schoolId }),
         });
-        setNotice('招待を作成しました。初回パスワード: ' + result.temporaryPassword);
+        setNotice('招待を作成しました。パスワード: ' + result.temporaryPassword);
       }
       setEditing(null);
       setTeacherForm(initialTeacher);
@@ -197,34 +211,42 @@ export default function Admin() {
         <section className="admin-login">
           <p className="admin-kicker">YORISOI AI COUNSELING</p>
           <h1>教員管理画面</h1>
-          <p>Passkeyで安全にログインします。</p>
           {error && <p className="admin-error">{error}</p>}
-          <button className="admin-primary" onClick={passkeyLogin}>
-            Passkeyでログイン
-          </button>
-          <details>
-            <summary>初回ログインはこちら</summary>
-            <form onSubmit={passwordLogin}>
-              <input placeholder="ユーザー名" value={login.username} onChange={(e) => setLogin({ ...login, username: e.target.value })} />
-              <input
-                type="password"
-                placeholder="初回パスワード"
-                value={login.password}
-                onChange={(e) => setLogin({ ...login, password: e.target.value })}
-              />
-              <button>ログインしてPasskeyを登録</button>
-            </form>
-          </details>
+          {passwordLoginVisible ? (
+            <>
+              <h2>パスワードでログイン</h2>
+              <p>Passkeyをまだ登録していない教員は、ユーザー名とパスワードでログインします。</p>
+              <form onSubmit={passwordLogin}>
+                <input placeholder="ユーザー名" value={login.username} onChange={(e) => setLogin({ ...login, username: e.target.value })} />
+                <input
+                  type="password"
+                  placeholder="パスワード"
+                  value={login.password}
+                  onChange={(e) => setLogin({ ...login, password: e.target.value })}
+                />
+                <button>ログインしてPasskeyを登録</button>
+                <button type="button" onClick={() => setPasswordLoginVisible(false)}>
+                  戻る
+                </button>
+              </form>
+            </>
+          ) : (
+            <>
+              <p>Passkeyで安全にログインします。</p>
+              <button className="admin-primary" onClick={passkeyLogin}>
+                Passkeyでログイン
+              </button>
+            </>
+          )}
         </section>
       </main>
-    );
-  if (me.enrollmentRequired)
+    );  if (me.enrollmentRequired)
     return (
       <main className="admin-shell">
         <section className="admin-login">
-          <p className="admin-kicker">FIRST SIGN IN</p>
+          <p className="admin-kicker">PASSKEY REGISTRATION</p>
           <h1>Passkeyを登録してください</h1>
-          <p>初回パスワードは、この登録が完了すると使えなくなります。</p>
+          <p>この登録が完了すると、パスワードではログインできなくなります。</p>
           {error && <p className="admin-error">{error}</p>}
           <input value={keyName} onChange={(e) => setKeyName(e.target.value)} aria-label="Passkey名" />
           <button className="admin-primary" onClick={registerKey}>
@@ -451,7 +473,7 @@ export default function Admin() {
                         onClick={() =>
                           void run(async () => {
                             const result = await api('teachers/' + t.id + '/reset-passkeys', { method: 'POST', body: '{}' });
-                            setNotice(t.name + 'さんのPasskeyをリセットしました。初回パスワード: ' + result.temporaryPassword);
+                            setNotice(t.name + 'さんのPasskeyをリセットしました。パスワード: ' + result.temporaryPassword);
                           })
                         }
                       >

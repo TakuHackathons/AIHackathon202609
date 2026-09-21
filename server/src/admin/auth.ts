@@ -50,7 +50,7 @@ authRouter.post('/password', async (c) => {
   const db = database(c.env);
   const [user] = await db.select().from(users).where(eq(users.username, login)).limit(1);
   const valid = await verifyPassword(password, user?.passwordHash ?? null);
-  if (!user || !valid || !user.passwordExpiresAt || user.passwordExpiresAt <= Date.now()) fail(401, 'Invalid initial password.');
+  if (!user || !valid || !user.passwordExpiresAt || user.passwordExpiresAt <= Date.now()) fail(401, 'Password login failed.');
   const keys = await db.select({ id: passkeys.id }).from(passkeys).where(eq(passkeys.userId, user.id)).limit(1);
   if (keys.length) fail(401, 'Use a passkey.');
   await makeSession(c, user, 'enroll');
@@ -58,9 +58,11 @@ authRouter.post('/password', async (c) => {
 });
 
 authRouter.post('/authentication/options', async (c) => {
+  const db = database(c.env);
+  const registered = await db.select({ id: passkeys.id }).from(passkeys).limit(1);
   const options = await generateAuthenticationOptions({ rpID: origin(c).rpID, userVerification: 'required' });
   await saveChallenge(c, { challenge: options.challenge, kind: 'authentication' });
-  return c.json(options);
+  return c.json({ ...options, passwordLoginAvailable: registered.length === 0 });
 });
 
 authRouter.post('/authentication/verify', async (c) => {

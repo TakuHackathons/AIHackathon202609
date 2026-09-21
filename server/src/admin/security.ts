@@ -38,8 +38,10 @@ export async function verifyPassword(password: string, encoded: string | null) {
   for (let i = 0; i < a.length; i++) diff |= a[i] ^ (b[i] ?? 0);
   return diff === 0;
 }
+const localAdminOrigins = new Set(['http://localhost:3000', 'http://127.0.0.1:3000']);
 export function origin(c: AdminContext) {
-  const raw = c.env.ADMIN_ORIGIN || 'http://localhost:3000';
+  const requested = c.req.header('Origin');
+  const raw = c.env.ADMIN_ORIGIN || (requested && localAdminOrigins.has(requested) ? requested : 'http://localhost:3000');
   const url = new URL(raw);
   if (url.origin !== raw || (url.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(url.hostname)))
     fail(503, 'ADMIN_ORIGINを正しい公開URLに設定してください。');

@@ -13,7 +13,7 @@ server/.env.example を server/.env としてコピーします。続けてマ�
     pnpm --filter live-ai-supporter-server db:migrate:local
     pnpm --filter live-ai-supporter-server db:seed:local
 
-seed は `Sample School` と、学校に所属しない運用者 `super_admin` を作成します。初回ログインのユーザー名は `super-admin`、パスワードは `initial-super-admin-password` です。Passkey を登録するとこのパスワードは使えなくなります。
+seed は `Sample School` と、学校に所属しない運用者 `super_admin` を作成します。ログイン用のユーザー名は `super-admin`、パスワードは `initial-super-admin-password` です。Passkey を登録するとこのパスワードは使えなくなります。
 VOICEVOXを起動します。
 
     docker pull voicevox/voicevox_engine:cpu-latest
@@ -24,11 +24,11 @@ VOICEVOXを起動します。
     pnpm dev:server
     pnpm dev:web
 
-相談画面は http://localhost:3000 、教員管理画面は http://localhost:3000/admin/ です。
+相談画面は http://localhost:3000 または http://127.0.0.1:3000 、教員管理画面はそれぞれの /admin/ です。
 
 ## 教員管理
 
-管理画面はPasskey認証を使います。初回だけ、管理者から伝えられたユーザー名と初回パスワードでログインし、Passkeyを登録します。登録後はパスワードでログインできません。
+管理画面はPasskey認証を使います。Passkey を登録していない教員は、管理者から伝えられたユーザー名とパスワードでログインし、Passkey を登録します。登録後はパスワードでログインできません。
 
 | role | 操作できる範囲 |
 | --- | --- |
