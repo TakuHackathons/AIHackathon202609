@@ -8,7 +8,7 @@
 import { execFileSync } from 'node:child_process';
 
 const [schoolId, target] = process.argv.slice(2);
-if (!schoolId || !/^[0-9a-f-]{36}$/i.test(schoolId) || !['--local', '--remote'].includes(target)) {
+if (!schoolId || !/^[1-9][0-9]*$/.test(schoolId) || !['--local', '--remote'].includes(target)) {
   throw new Error('学校IDと --local または --remote を指定してください。');
 }
 const command = `DELETE FROM schools WHERE id = '${schoolId.replaceAll("'", "''")}';`;

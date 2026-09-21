@@ -4,7 +4,7 @@ import { startAuthentication, startRegistration } from '@simplewebauthn/browser'
 type Role = 'super_admin' | 'admin' | 'general';
 type Teacher = {
   id: string;
-  schoolId: string | null;
+  schoolId: number | null;
   username: string;
   name: string;
   email: string;
@@ -14,8 +14,8 @@ type Teacher = {
   role: Role;
   createdAt: number;
 };
-type School = { id: string; name: string; code: string; address: string; phone: string; createdAt: number; updatedAt: number };
-type Key = { id: string; name: string; createdAt: number; lastUsedAt: number | null };
+type School = { id: number; name: string; code: string; address: string; phone: string; createdAt: number; updatedAt: number };
+type Key = { id: number; name: string; createdAt: number; lastUsedAt: number | null };
 type Me = { user: Teacher; enrollmentRequired: boolean };
 const initialTeacher = {
   name: '',
@@ -25,7 +25,7 @@ const initialTeacher = {
   subjects: '',
   responsibilities: '',
   role: 'general' as Role,
-  schoolId: '',
+  schoolId: 0,
 };
 const initialSchool = { name: '', code: '', address: '', phone: '', adminName: '', username: '' };
 
@@ -144,7 +144,11 @@ export default function Admin() {
       setNotice('Passkeyを登録しました。');
       await refresh();
     });
-  const logout = () =>
+  const issuePassword = () =>
+    run(async () => {
+      const result = await api('auth/password/issue', { method: 'POST', body: '{}' });
+      setNotice(`ユーザー名: ${result.username} / パスワード: ${result.password}`);
+    });  const logout = () =>
     run(async () => {
       await api('auth/logout', { method: 'POST', body: '{}' });
       setMe(null);
@@ -417,9 +421,9 @@ export default function Admin() {
                   />
                   {superAdmin && !editing && (
                     <select
-                      value={teacherForm.schoolId || ''}
+                      value={teacherForm.schoolId || 0}
                       required
-                      onChange={(e) => setTeacherForm({ ...teacherForm, schoolId: e.target.value })}
+                      onChange={(e) => setTeacherForm({ ...teacherForm, schoolId: Number(e.target.value) })}
                     >
                       <option value="">所属する学校</option>
                       {schools.map((s) => (
@@ -464,7 +468,7 @@ export default function Admin() {
                       <button
                         onClick={() => {
                           setEditing(t.id);
-                          setTeacherForm({ ...t, schoolId: t.schoolId || '' });
+                          setTeacherForm({ ...t, schoolId: t.schoolId || 0 });
                         }}
                       >
                         編集
@@ -531,9 +535,9 @@ export default function Admin() {
             <div className="admin-card">
               <p>Passkeyは複数の端末で登録できます。最後の1件は削除できません。</p>
               <div className="key-add">
-                <input value={keyName} onChange={(e) => setKeyName(e.target.value)} placeholder="Passkey名" />
-                <button className="admin-primary" onClick={registerKey}>
-                  この端末を追加
+                <span>ユーザー名: {me.user.username}</span>
+                <button className="admin-primary" onClick={issuePassword}>
+                  パスワードを発行
                 </button>
               </div>
               {keys.map((k) => (

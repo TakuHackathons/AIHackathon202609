@@ -20,8 +20,10 @@ import {
   fail,
   makeSession,
   origin,
+  passwordHash,
   rateLimit,
   saveChallenge,
+  token,
   unbase64,
   username,
   verifyPassword,
@@ -51,10 +53,24 @@ authRouter.post('/password', async (c) => {
   const [user] = await db.select().from(users).where(eq(users.username, login)).limit(1);
   const valid = await verifyPassword(password, user?.passwordHash ?? null);
   if (!user || !valid || !user.passwordExpiresAt || user.passwordExpiresAt <= Date.now()) fail(401, 'Password login failed.');
-  const keys = await db.select({ id: passkeys.id }).from(passkeys).where(eq(passkeys.userId, user.id)).limit(1);
-  if (keys.length) fail(401, 'Use a passkey.');
-  await makeSession(c, user, 'enroll');
-  return c.json({ user: publicUser(user), enrollmentRequired: true });
+  const [consumed] = await db
+    .update(users)
+    .set({ passwordHash: null, passwordExpiresAt: null, updatedAt: Date.now() })
+    .where(eq(users.id, user.id))
+    .returning();
+  if (!consumed) fail(401, 'Password login failed.');
+  await makeSession(c, consumed, 'enroll');
+  return c.json({ user: publicUser(consumed), enrollmentRequired: true });
+});
+
+authRouter.post('/password/issue', async (c) => {
+  const { user } = await authenticate(c);
+  const password = token();
+  await database(c.env)
+    .update(users)
+    .set({ passwordHash: await passwordHash(password), passwordExpiresAt: Date.now() + 15 * 60_000, updatedAt: Date.now() })
+    .where(eq(users.id, user.id));
+  return c.json({ username: user.username, password });
 });
 
 authRouter.post('/authentication/options', async (c) => {
@@ -76,7 +92,7 @@ authRouter.post('/authentication/verify', async (c) => {
     .select({ key: passkeys, user: users })
     .from(passkeys)
     .innerJoin(users, eq(passkeys.userId, users.id))
-    .where(eq(passkeys.id, response.id))
+    .where(eq(passkeys.credentialId, response.id))
     .limit(1);
   if (!record) fail(401, 'Passkey verification failed.');
 
@@ -89,7 +105,7 @@ authRouter.post('/authentication/verify', async (c) => {
       expectedRPID: origin(c).rpID,
       requireUserVerification: true,
       credential: {
-        id: record.key.id,
+        id: record.key.credentialId,
         publicKey: unbase64(record.key.publicKey) as never,
         counter: record.key.counter,
         transports: record.key.transports,
@@ -126,12 +142,12 @@ authRouter.post('/registration/options', async (c) => {
   const options = await generateRegistrationOptions({
     rpName: 'Yorisoi AI Admin',
     rpID: origin(c).rpID,
-    userID: new Uint8Array([...new TextEncoder().encode(user.id)]) as never,
+    userID: new Uint8Array([...new TextEncoder().encode(String(user.id))]) as never,
     userName: user.username,
     userDisplayName: user.name,
     attestationType: 'none',
     authenticatorSelection: { residentKey: 'required', userVerification: 'required' },
-    excludeCredentials: keys.map((key) => ({ id: key.id, transports: key.transports })),
+    excludeCredentials: keys.map((key) => ({ id: key.credentialId, transports: key.transports })),
     supportedAlgorithmIDs: [-7, -257],
   });
   await saveChallenge(c, {
@@ -170,7 +186,7 @@ authRouter.post('/registration/verify', async (c) => {
   const db = database(c.env);
   await db.batch([
     db.insert(passkeys).values({
-      id: info.credential.id,
+      credentialId: info.credential.id,
       userId: user.id,
       publicKey: base64(info.credential.publicKey),
       counter: info.credential.counter,
@@ -204,7 +220,8 @@ authRouter.delete('/passkeys/:id', async (c) => {
   const db = database(c.env);
   const keys = await db.select({ id: passkeys.id }).from(passkeys).where(eq(passkeys.userId, user.id));
   if (keys.length <= 1) fail(400, 'Register another passkey before deleting this one.');
-  const id = c.req.param('id');
+  const id = Number(c.req.param('id'));
+  if (!Number.isSafeInteger(id) || id < 1) fail(404, 'Passkey not found.');
   const deleted = await db
     .delete(passkeys)
     .where(and(eq(passkeys.id, id), eq(passkeys.userId, user.id)))

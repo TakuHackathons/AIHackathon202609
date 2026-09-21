@@ -47,7 +47,7 @@ adminRouter.use('*', async (c, next) => {
 function requireManager(c: AdminContext) {
   if (c.get('user').role === 'general') fail(403, 'Manager role required.');
 }
-function schoolScope(c: AdminContext, id: string) {
+function schoolScope(c: AdminContext, id: number) {
   const actor = c.get('user');
   if (actor.role !== 'super_admin' && actor.schoolId !== id) fail(404, 'School not found.');
 }
@@ -72,10 +72,14 @@ function schoolFields(data: Record<string, unknown>) {
     phone: field(data, 'phone', 50, false),
   };
 }
+function routeId(c: AdminContext, message: string) {
+  const id = Number(c.req.param('id'));
+  if (!Number.isSafeInteger(id) || id < 1) fail(404, message);
+  return id;
+}
 async function teacher(c: AdminContext): Promise<User> {
-  const id = c.req.param('id');
-  if (!id) fail(404, 'Teacher not found.');
-  const [result] = await database(c.env).select().from(users).where(eq(users.id, id!)).limit(1);
+  const id = routeId(c, 'Teacher not found.');
+  const [result] = await database(c.env).select().from(users).where(eq(users.id, id)).limit(1);
   if (!result) fail(404, 'Teacher not found.');
   const actor = c.get('user');
   if (actor.id !== result.id && !canManage(actor, result)) fail(404, 'Teacher not found.');
@@ -93,33 +97,16 @@ adminRouter.get('/schools', async (c) => {
 });
 adminRouter.post('/schools', async (c) => {
   if (c.get('user').role !== 'super_admin') fail(403, 'Super admin required.');
-  const data = await body(c),
-    school = schoolFields(data),
-    adminUsername = username(data),
-    adminName = field(data, 'adminName', 100),
-    temporaryPassword = token(),
-    now = Date.now(),
-    schoolId = crypto.randomUUID();
+  const data = await body(c), school = schoolFields(data), adminUsername = username(data), adminName = field(data, 'adminName', 100), temporaryPassword = token(), now = Date.now();
   const db = database(c.env);
-  await db.batch([
-    db.insert(schools).values({ ...school, id: schoolId, createdAt: now, updatedAt: now }),
-    db.insert(users).values({
-      id: crypto.randomUUID(),
-      schoolId,
-      username: adminUsername,
-      name: adminName,
-      role: 'admin',
-      passwordHash: await passwordHash(temporaryPassword),
-      passwordExpiresAt: now + 7 * 86_400_000,
-      createdAt: now,
-      updatedAt: now,
-    }),
-  ]);
+  const [createdSchool] = await db.insert(schools).values({ ...school, createdAt: now, updatedAt: now }).returning();
+  await db.insert(users).values({ schoolId: createdSchool.id, username: adminUsername, name: adminName, role: 'admin', passwordHash: await passwordHash(temporaryPassword), passwordExpiresAt: now + 7 * 86_400_000, createdAt: now, updatedAt: now });
+  const schoolId = createdSchool.id;
   return c.json({ schoolId, username: adminUsername, temporaryPassword }, 201);
 });
 adminRouter.patch('/schools/:id', async (c) => {
   requireManager(c);
-  const id = c.req.param('id');
+  const id = routeId(c, 'School not found.');
   schoolScope(c, id);
   const [school] = await database(c.env)
     .update(schools)
@@ -143,7 +130,7 @@ adminRouter.post('/teachers', async (c) => {
   requireManager(c);
   const actor = c.get('user'),
     data = await body(c),
-    schoolId = actor.role === 'super_admin' ? field(data, 'schoolId', 100) : actor.schoolId!,
+    schoolId = actor.role === 'super_admin' ? Number(field(data, 'schoolId', 100)) : actor.schoolId!,
     role = managementRole(data.role);
   const [school] = await database(c.env).select({ id: schools.id }).from(schools).where(eq(schools.id, schoolId)).limit(1);
   if (!school) fail(404, 'School not found.');
@@ -153,7 +140,6 @@ adminRouter.post('/teachers', async (c) => {
     .insert(users)
     .values({
       ...teacherFields(data),
-      id: crypto.randomUUID(),
       schoolId,
       username: username(data),
       role,

@@ -76,7 +76,7 @@ export async function currentSession(c: AdminContext) {
     .select({ session: sessions, user: users })
     .from(sessions)
     .innerJoin(users, eq(sessions.userId, users.id))
-    .where(and(eq(sessions.id, await hash(raw)), gt(sessions.expiresAt, Date.now()), eq(sessions.authVersion, users.authVersion)))
+    .where(and(eq(sessions.tokenHash, await hash(raw)), gt(sessions.expiresAt, Date.now()), eq(sessions.authVersion, users.authVersion)))
     .limit(1);
   return record ?? null;
 }
@@ -94,7 +94,7 @@ export async function makeSession(c: AdminContext, user: User, scope: 'enroll' |
     maxAge = scope === 'enroll' ? 600 : 28800;
   await database(c.env)
     .insert(sessions)
-    .values({ id, userId: user.id, scope, authVersion: user.authVersion, expiresAt: Date.now() + maxAge * 1000 });
+    .values({ tokenHash: id, userId: user.id, scope, authVersion: user.authVersion, expiresAt: Date.now() + maxAge * 1000 });
   setCookie(c, cookieName, raw, { httpOnly: true, secure: origin(c).secure, sameSite: 'Strict', path: '/api/admin', maxAge });
 }
 export function clearSession(c: AdminContext) {
@@ -106,16 +106,16 @@ export async function rateLimit(c: AdminContext, key: string, max: number, windo
     id = await hash(key + ':' + Math.floor(now / windowMs));
   const [row] = await db
     .insert(attempts)
-    .values({ id, count: 1, expiresAt: now + windowMs })
-    .onConflictDoUpdate({ target: attempts.id, set: { count: sql`${attempts.count}+1` } })
+    .values({ keyHash: id, count: 1, expiresAt: now + windowMs })
+    .onConflictDoUpdate({ target: attempts.keyHash, set: { count: sql`${attempts.count}+1` } })
     .returning();
   if (row.count > max) fail(429, '試行回数が多すぎます。しばらく待ってから再度お試しください。');
 }
-export async function saveChallenge(c: AdminContext, value: Omit<typeof challenges.$inferInsert, 'id' | 'expiresAt'>) {
+export async function saveChallenge(c: AdminContext, value: Omit<typeof challenges.$inferInsert, 'id' | 'tokenHash' | 'expiresAt'>) {
   const raw = token();
   await database(c.env)
     .insert(challenges)
-    .values({ ...value, id: await hash(raw), expiresAt: Date.now() + 300000 });
+    .values({ ...value, tokenHash: await hash(raw), expiresAt: Date.now() + 300000 });
   setCookie(c, 'teacher_challenge', raw, {
     httpOnly: true,
     secure: origin(c).secure,
@@ -130,7 +130,7 @@ export async function consumeChallenge(c: AdminContext, kind: 'registration' | '
   if (!raw) return fail(400, '認証を最初からやり直してください。');
   const [row] = await database(c.env)
     .delete(challenges)
-    .where(and(eq(challenges.id, await hash(raw)), eq(challenges.kind, kind), gt(challenges.expiresAt, Date.now())))
+    .where(and(eq(challenges.tokenHash, await hash(raw)), eq(challenges.kind, kind), gt(challenges.expiresAt, Date.now())))
     .returning();
   if (!row) return fail(400, '認証の有効期限が切れています。やり直してください。');
   return row;
