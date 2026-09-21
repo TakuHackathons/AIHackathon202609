@@ -53,14 +53,8 @@ authRouter.post('/password', async (c) => {
   const [user] = await db.select().from(users).where(eq(users.username, login)).limit(1);
   const valid = await verifyPassword(password, user?.passwordHash ?? null);
   if (!user || !valid || !user.passwordExpiresAt || user.passwordExpiresAt <= Date.now()) fail(401, 'Password login failed.');
-  const [consumed] = await db
-    .update(users)
-    .set({ passwordHash: null, passwordExpiresAt: null, updatedAt: Date.now() })
-    .where(eq(users.id, user.id))
-    .returning();
-  if (!consumed) fail(401, 'Password login failed.');
-  await makeSession(c, consumed, 'enroll');
-  return c.json({ user: publicUser(consumed), enrollmentRequired: true });
+  await makeSession(c, user, 'enroll');
+  return c.json({ user: publicUser(user), enrollmentRequired: true });
 });
 
 authRouter.post('/password/issue', async (c) => {
