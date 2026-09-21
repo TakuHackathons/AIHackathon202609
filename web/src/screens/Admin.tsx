@@ -164,7 +164,8 @@ export default function Admin() {
       setNotice('School updated.');
       await refresh();
     });
-  };  const saveTeacher = (event: FormEvent) => {
+  };
+  const saveTeacher = (event: FormEvent) => {
     event.preventDefault();
     void run(async () => {
       let result;
@@ -306,15 +307,36 @@ export default function Admin() {
                 <form className="admin-card admin-form" onSubmit={saveSchool}>
                   <h2>{'\u5b66\u6821\u60c5\u5831\u3092\u7de8\u96c6'}</h2>
                   <div className="admin-grid">
-                    <input required placeholder={'\u5b66\u6821\u540d'} value={schoolEditing.name} onChange={(e) => setSchoolEditing({ ...schoolEditing, name: e.target.value })} />
-                    <input required placeholder={'\u5b66\u6821\u30b3\u30fc\u30c9'} value={schoolEditing.code} onChange={(e) => setSchoolEditing({ ...schoolEditing, code: e.target.value })} />
-                    <input placeholder={'\u4f4f\u6240'} value={schoolEditing.address} onChange={(e) => setSchoolEditing({ ...schoolEditing, address: e.target.value })} />
-                    <input placeholder={'\u96fb\u8a71\u756a\u53f7'} value={schoolEditing.phone} onChange={(e) => setSchoolEditing({ ...schoolEditing, phone: e.target.value })} />
+                    <input
+                      required
+                      placeholder={'\u5b66\u6821\u540d'}
+                      value={schoolEditing.name}
+                      onChange={(e) => setSchoolEditing({ ...schoolEditing, name: e.target.value })}
+                    />
+                    <input
+                      required
+                      placeholder={'\u5b66\u6821\u30b3\u30fc\u30c9'}
+                      value={schoolEditing.code}
+                      onChange={(e) => setSchoolEditing({ ...schoolEditing, code: e.target.value })}
+                    />
+                    <input
+                      placeholder={'\u4f4f\u6240'}
+                      value={schoolEditing.address}
+                      onChange={(e) => setSchoolEditing({ ...schoolEditing, address: e.target.value })}
+                    />
+                    <input
+                      placeholder={'\u96fb\u8a71\u756a\u53f7'}
+                      value={schoolEditing.phone}
+                      onChange={(e) => setSchoolEditing({ ...schoolEditing, phone: e.target.value })}
+                    />
                   </div>
                   <button className="admin-primary">{'\u4fdd\u5b58'}</button>
-                  <button type="button" onClick={() => setSchoolEditing(null)}>{'\u30ad\u30e3\u30f3\u30bb\u30eb'}</button>
+                  <button type="button" onClick={() => setSchoolEditing(null)}>
+                    {'\u30ad\u30e3\u30f3\u30bb\u30eb'}
+                  </button>
                 </form>
-              )}              {selectedSchools.map((s) => (
+              )}{' '}
+              {selectedSchools.map((s) => (
                 <article className="admin-card" key={s.id}>
                   <h2>{s.name}</h2>
                   <p>
@@ -325,7 +347,8 @@ export default function Admin() {
                     <button type="button" onClick={() => setSchoolEditing({ ...s })}>
                       {'\u5b66\u6821\u60c5\u5831\u3092\u7de8\u96c6'}
                     </button>
-                  )}                </article>
+                  )}{' '}
+                </article>
               ))}
             </div>
           </section>
