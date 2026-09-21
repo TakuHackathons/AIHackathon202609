@@ -28,8 +28,6 @@ Cloudflareには `server/wrangler.jsonc` の1プロジェクトとしてデプ�
 
 ## 開発
 
-`pnpm dev` で統合サーバー（8787番）を起動したあと、別ターミナルで `pnpm dev:web` を実行すると、3000番でViteのHMRを利用できます。`/api/*` は8787番のHonoへ転送されます。
-
-`pnpm --filter live-ai-supporter-web start` は静的成果物だけのプレビューです。APIを含む確認は `pnpm dev` を使用してください。
+VOICEVOX・Hono・Webの準備と起動コマンドは、[ルートREADMEのローカル環境の起動手順](../README.md#ローカル環境の起動)にまとめています。そちらの順序で起動してください。
 
 参考: [TanStack Start Static Prerendering](https://tanstack.com/start/latest/docs/framework/react/guide/static-prerendering)
