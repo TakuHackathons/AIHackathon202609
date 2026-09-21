@@ -22,7 +22,7 @@ export function VrmViewer() {
   }, [viewer]);
   return (
     <div className="vrm-canvas">
-      <canvas ref={canvas} aria-label="ずんだもんの3Dモデル" />
+      <canvas ref={canvas} aria-label="AI相談アシスタントの3Dモデル" />
     </div>
   );
 }
