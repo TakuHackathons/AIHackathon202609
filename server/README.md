@@ -11,7 +11,7 @@
 以下は、OrcaRouterのAgentに対し、GitHub MCPとExa MCPの接続の動作確認をします。
 外部サービスと有効な認証情報を必要とするため、通常のunit testやCIには含めません。
 
-必要なBot、OrcaRouter、GitHub MCP、Exa MCPの環境変数を`server/.dev.vars`に設定してください。
+必要なBot、OrcaRouter、GitHub MCP、Exa MCPの環境変数を`server/.env`に設定してください。
 その後、別のターミナルで以下を実行し、ローカルAPIサーバーを起動してください。
 
 ```bash

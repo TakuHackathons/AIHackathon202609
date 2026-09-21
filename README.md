@@ -8,12 +8,12 @@ Node.js、pnpm、Dockerを用意します。すべてプロジェクトルート
 
     pnpm install
 
-server/.dev.vars.example を server/.dev.vars としてコピーし、server/.dev.vars の `SEED_SUPER_ADMIN_PASSWORD` に、初回ログイン用の十分に長いパスワードを設定します。続けてマイグレーションと seed を実行します。
+server/.env.example を server/.env としてコピーします。続けてマイグレーションと seed を実行します。
 
     pnpm --filter live-ai-supporter-server db:migrate:local
     pnpm --filter live-ai-supporter-server db:seed:local
 
-seed は `SEED_SCHOOL_NAME` と `SEED_SCHOOL_CODE` の学校、学校に所属しない運用者 `super_admin` を作成します。Passkey 登録前だけ、`SEED_SUPER_ADMIN_USERNAME` と `SEED_SUPER_ADMIN_PASSWORD` でログインできます。二度目以降の実行では既存データを変更しません。
+seed は `Sample School` と、学校に所属しない運用者 `super_admin` を作成します。初回ログインのユーザー名は `super-admin`、パスワードは `initial-super-admin-password` です。Passkey を登録するとこのパスワードは使えなくなります。
 VOICEVOXを起動します。
 
     docker pull voicevox/voicevox_engine:cpu-latest
