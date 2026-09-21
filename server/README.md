@@ -15,14 +15,14 @@
 その後、別のターミナルで以下を実行し、ローカルAPIサーバーを起動してください。
 
 ```bash
-pnpm --filter live-ai-supporter-server dev
+pnpm --filter empathy-ai-companion-server dev
 ```
 
 以下を別のターミナルから実行してください。
 これにより、HTTPリクエストが送られ、結果を検査できます。
 
 ```bash
-pnpm --filter live-ai-supporter-server test:orca:e2e
+pnpm --filter empathy-ai-companion-server test:orca:e2e
 ```
 
 以下は補足です。
@@ -30,5 +30,5 @@ pnpm --filter live-ai-supporter-server test:orca:e2e
 別の環境を使用する場合は、以下のように`ORCA_E2E_BASE_URL`を設定してください。
 
 ```bash
-ORCA_E2E_BASE_URL=http://localhost:8788 pnpm --filter live-ai-supporter-server test:orca:e2e
+ORCA_E2E_BASE_URL=http://localhost:8788 pnpm --filter empathy-ai-companion-server test:orca:e2e
 ```

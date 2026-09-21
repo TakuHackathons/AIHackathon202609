@@ -2,8 +2,8 @@
  * 学校削除用の運用スクリプトです。管理画面からの学校削除は実装していません。
  *
  * 実行例:
- *   pnpm --filter live-ai-supporter-server delete:school -- <school-id> --local
- *   pnpm --filter live-ai-supporter-server delete:school -- <school-id> --remote
+ *   pnpm --filter empathy-ai-companion-server delete:school -- <school-id> --local
+ *   pnpm --filter empathy-ai-companion-server delete:school -- <school-id> --remote
  */
 import { execFileSync } from 'node:child_process';
 

@@ -1,5 +1,5 @@
 {
-  "name": "live-ai-supporter-root",
+  "name": "empathy-ai-companion",
   "version": "1.0.0",
   "private": true,
   "workspaces": [
@@ -8,16 +8,16 @@
     "packages/*"
   ],
   "scripts": {
-    "dev:web": "pnpm --filter live-ai-supporter-web dev",
-    "dev:server": "pnpm build:web && pnpm --filter live-ai-supporter-server dev",
-    "build:web": "pnpm --filter live-ai-supporter-web build",
-    "deploy:cloudflare": "pnpm build:web && pnpm --filter live-ai-supporter-server deploy:cloudflare",
-    "lint": "pnpm --filter live-ai-supporter-web lint && pnpm --filter live-ai-supporter-server lint",
+    "dev:web": "pnpm --filter empathy-ai-companion-web dev",
+    "dev:server": "pnpm build:web && pnpm --filter empathy-ai-companion-server dev",
+    "build:web": "pnpm --filter empathy-ai-companion-web build",
+    "deploy:cloudflare": "pnpm build:web && pnpm --filter empathy-ai-companion-server deploy:cloudflare",
+    "lint": "pnpm --filter empathy-ai-companion-web lint && pnpm --filter empathy-ai-companion-server lint",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx}\" --ignore-path .gitignore --ignore-path .prettierignore",
     "dev": "pnpm dev:server",
-    "build": "pnpm build:web && pnpm --filter live-ai-supporter-server build",
-    "test": "pnpm --filter live-ai-supporter-web exec tsx --test ../tests/*.test.ts",
-    "deploy:check": "pnpm build:web && pnpm --filter live-ai-supporter-server exec wrangler deploy --dry-run"
+    "build": "pnpm build:web && pnpm --filter empathy-ai-companion-server build",
+    "test": "pnpm --filter empathy-ai-companion-web exec tsx --test ../tests/*.test.ts",
+    "deploy:check": "pnpm build:web && pnpm --filter empathy-ai-companion-server exec wrangler deploy --dry-run"
   },
   "devDependencies": {
     "prettier": "^3.8.3"

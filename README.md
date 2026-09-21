@@ -10,12 +10,12 @@ Node.js、pnpm、Dockerを用意します。すべてプロジェクトルート
 
 server/.env.example を server/.env としてコピーします。続けてマイグレーションと seed を実行します。
 
-    pnpm --filter live-ai-supporter-server db:migrate:local
-    pnpm --filter live-ai-supporter-server db:seed:local
+    pnpm --filter empathy-ai-companion-server db:migrate:local
+    pnpm --filter empathy-ai-companion-server db:seed:local
 
 ローカル D1 を作り直して `0000` から適用し直す場合は、次を実行します。
 
-    pnpm --filter live-ai-supporter-server db:migrate:reset
+    pnpm --filter empathy-ai-companion-server db:migrate:reset
 
 ### seed の super admin
 
@@ -55,18 +55,18 @@ VOICEVOXを起動します。
 
 学校の削除は管理画面にはありません。誤操作を避けるため、運用スクリプトだけで削除します。
 
-    pnpm --filter live-ai-supporter-server delete:school -- <school-id> --local
-    pnpm --filter live-ai-supporter-server delete:school -- <school-id> --remote
+    pnpm --filter empathy-ai-companion-server delete:school -- <school-id> --local
+    pnpm --filter empathy-ai-companion-server delete:school -- <school-id> --remote
 
 ## Cloudflare D1とデプロイ
 
 Workerを初めてデプロイする前にD1を作成し、server/wrangler.jsonc の d1_databases[0].database_id に作成結果のIDを設定します。
 
-    pnpm --filter live-ai-supporter-server exec wrangler d1 create empathy-ai-companion-admin
-    pnpm --filter live-ai-supporter-server db:migrate:remote
-    pnpm --filter live-ai-supporter-server db:seed:remote
-    pnpm --filter live-ai-supporter-server exec wrangler secret put ORCAROUTER_API_KEY
-    pnpm --filter live-ai-supporter-server exec wrangler secret put VOICEVOX_API_ROOT_URL
+    pnpm --filter empathy-ai-companion-server exec wrangler d1 create empathy-ai-companion-admin
+    pnpm --filter empathy-ai-companion-server db:migrate:remote
+    pnpm --filter empathy-ai-companion-server db:seed:remote
+    pnpm --filter empathy-ai-companion-server exec wrangler secret put ORCAROUTER_API_KEY
+    pnpm --filter empathy-ai-companion-server exec wrangler secret put VOICEVOX_API_ROOT_URL
     pnpm deploy:cloudflare
 
 
