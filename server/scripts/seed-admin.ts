@@ -1,4 +1,6 @@
 import { execFileSync } from 'node:child_process';
+import { rmSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { passwordHash } from '../src/admin/security';
 
 const [target] = process.argv.slice(2);
@@ -24,11 +26,17 @@ VALUES (${literal(seed.schoolId)}, ${literal(seed.schoolName)}, ${literal(seed.s
 INSERT OR IGNORE INTO users (id, school_id, username, name, role, password_hash, password_expires_at, auth_version, created_at, updated_at)
 VALUES (${literal(seed.superAdminId)}, NULL, ${literal(seed.superAdminUsername)}, ${literal(seed.superAdminName)}, 'super_admin', ${literal(password)}, ${now + 7 * 86_400_000}, 0, ${now}, ${now});
 `;
-  execFileSync('pnpm', ['exec', 'wrangler', 'd1', 'execute', 'DB', target!, '--command', command], {
-    cwd: new URL('../', import.meta.url),
-    stdio: 'inherit',
-    shell: process.platform === 'win32',
-  });
+  const sqlFile = resolve(process.cwd(), '.seed-admin.sql');
+  writeFileSync(sqlFile, command, 'utf8');
+  try {
+    execFileSync('pnpm', ['exec', 'wrangler', 'd1', 'execute', 'DB', target!, '--file', '.seed-admin.sql'], {
+      cwd: new URL('../', import.meta.url),
+      stdio: 'inherit',
+      shell: process.platform === 'win32',
+    });
+  } finally {
+    rmSync(sqlFile, { force: true });
+  }
   console.log(`Seeded ${seed.schoolName} and super admin ${seed.superAdminUsername}.`);
 }
 void main();
