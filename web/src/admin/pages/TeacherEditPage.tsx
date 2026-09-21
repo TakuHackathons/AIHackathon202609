@@ -17,9 +17,6 @@ export default function TeacherEditPage({ teacherId }: { teacherId: number }) {
       name: teacher.name,
       username: teacher.username,
       email: teacher.email,
-      department: teacher.department,
-      subjects: teacher.subjects,
-      responsibilities: teacher.responsibilities,
       role: teacher.role,
       schoolId: teacher.schoolId ?? 0,
     });

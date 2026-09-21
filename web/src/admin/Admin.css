@@ -296,3 +296,5 @@
     margin-top: 0;
   }
 }
+
+.school-code{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.school-code code{padding:5px 9px;border-radius:6px;background:#eef5f8;color:#175f86;font-size:14px;font-weight:700;letter-spacing:.04em}.school-code button{padding:5px 9px;border:1px solid #cbdbe4;border-radius:6px;background:#fff;color:#286f96;cursor:pointer}

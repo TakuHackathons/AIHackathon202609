@@ -5,6 +5,7 @@ import { asc, eq, sql } from 'drizzle-orm';
 import { database } from '../db';
 import { challenges, passkeys, schools, sessions, users, publicUser, type User } from '../db/schema';
 import { authRouter } from './auth';
+import { catalogRouter } from './catalog';
 import {
   authenticate,
   body,
@@ -22,7 +23,10 @@ import {
 
 export const adminRouter = new Hono<AdminEnv>();
 
-adminRouter.use('*', bodyLimit({ maxSize: 65_536, onError: (c) => c.json({ error: 'Request body is too large.' }, 413) }));
+adminRouter.use('*', async (c, next) => {
+  if (c.req.header('Content-Type')?.startsWith('multipart/form-data')) return next();
+  return bodyLimit({ maxSize: 65_536, onError: (ctx) => ctx.json({ error: 'Request body is too large.' }, 413) })(c, next);
+});
 adminRouter.use('*', async (c, next) => {
   c.header('Cache-Control', 'no-store');
   if (!c.env.DB) return c.json({ error: 'Database is not configured.' }, 503);
@@ -42,6 +46,7 @@ adminRouter.use('*', async (c, next) => {
   await authenticate(c);
   await next();
 });
+adminRouter.route('/', catalogRouter);
 
 function requireManager(c: AdminContext) {
   if (c.get('user').role === 'general') fail(403, 'Manager role required.');
@@ -58,9 +63,6 @@ function teacherFields(data: Record<string, unknown>) {
   return {
     name: field(data, 'name', 100),
     email: field(data, 'email', 254, false),
-    department: field(data, 'department', 200, false),
-    subjects: field(data, 'subjects', 500, false),
-    responsibilities: field(data, 'responsibilities', 2_000, false),
   };
 }
 function schoolFields(data: Record<string, unknown>) {
@@ -96,10 +98,27 @@ adminRouter.get('/schools', async (c) => {
 });
 adminRouter.post('/schools', async (c) => {
   if (c.get('user').role !== 'super_admin') fail(403, 'Super admin required.');
-  const data = await body(c), school = schoolFields(data), adminUsername = username(data), adminName = field(data, 'adminName', 100), temporaryPassword = token(), now = Date.now();
+  const data = await body(c),
+    school = schoolFields(data),
+    adminUsername = username(data),
+    adminName = field(data, 'adminName', 100),
+    temporaryPassword = token(),
+    now = Date.now();
   const db = database(c.env);
-  const [createdSchool] = await db.insert(schools).values({ ...school, createdAt: now, updatedAt: now }).returning();
-  await db.insert(users).values({ schoolId: createdSchool.id, username: adminUsername, name: adminName, role: 'admin', passwordHash: await passwordHash(temporaryPassword), passwordExpiresAt: now + 7 * 86_400_000, createdAt: now, updatedAt: now });
+  const [createdSchool] = await db
+    .insert(schools)
+    .values({ ...school, createdAt: now, updatedAt: now })
+    .returning();
+  await db.insert(users).values({
+    schoolId: createdSchool.id,
+    username: adminUsername,
+    name: adminName,
+    role: 'admin',
+    passwordHash: await passwordHash(temporaryPassword),
+    passwordExpiresAt: now + 7 * 86_400_000,
+    createdAt: now,
+    updatedAt: now,
+  });
   const schoolId = createdSchool.id;
   return c.json({ schoolId, username: adminUsername, temporaryPassword }, 201);
 });

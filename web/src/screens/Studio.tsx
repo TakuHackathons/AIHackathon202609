@@ -1,9 +1,11 @@
-import { useContext, useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState, type FormEvent } from 'react';
 import { ViewerContext } from '../features/vrmViewer/viewerContext';
 import { VrmViewer } from '../compoments/vrmViewer';
 import { readChatStream, SentenceBuffer, SpeechQueue, type ChatMessage } from '../../../packages/core/src/index';
 
 type Message = ChatMessage & { id: number; state: 'complete' | 'pending' | 'stopped' | 'error' };
+type SchoolSelection = { schoolCode: string; schoolName: string; studentNumber: string };
+const schoolStorageKey = 'empathy-ai-companion.school';
 const greeting = 'こんにちは、水野です。勉強のこと、進路のこと、学校でのちょっとした悩み。今日はどんなことを一緒に考えましょうか？';
 const initial: Message[] = [{ id: 0, role: 'assistant', content: greeting, state: 'complete' }];
 const topics = ['自分に合う進路を考えたい', '勉強のやる気が出ない', '学校生活のことを相談したい'];
@@ -97,6 +99,10 @@ export default function Studio() {
   const [summaryBusy, setSummaryBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const [ended, setEnded] = useState(false);
+  const [school, setSchool] = useState<SchoolSelection | null>(null);
+  const [schoolReady, setSchoolReady] = useState(false);
+  const [schoolCode, setSchoolCode] = useState('');
+  const [studentNumber, setStudentNumber] = useState('');
   const audioEnabled = useRef(true);
   const active = useRef<AbortController | null>(null);
   const summarizing = useRef<AbortController | null>(null);
@@ -106,6 +112,16 @@ export default function Studio() {
   const textarea = useRef<HTMLTextAreaElement>(null);
   const mounted = useRef(true);
 
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(schoolStorageKey);
+      if (saved) setSchool(JSON.parse(saved));
+    } catch {
+      localStorage.removeItem(schoolStorageKey);
+    } finally {
+      setSchoolReady(true);
+    }
+  }, []);
   useEffect(() => {
     mounted.current = true;
     const timer = setInterval(() => {
@@ -210,7 +226,11 @@ export default function Studio() {
     let completed = false;
     try {
       await audioReady;
-      const response = await request('orca/chat', { message: text, history, stream: true }, controller.signal);
+      const response = await request(
+        'orca/chat',
+        { message: text, history, stream: true, schoolCode: school?.schoolCode, studentNumber: school?.studentNumber },
+        controller.signal,
+      );
       for await (const event of readChatStream(response, controller.signal)) {
         if (event.type === 'error') throw new Error(event.message);
         if (event.type === 'delta') {
@@ -264,6 +284,8 @@ export default function Studio() {
             'ここまでの相談を、本人が先生へ共有できるように、相談したこと・気持ち・次の一歩の順で150文字程度にまとめてください。会話にない内容は加えないでください。',
           history: historyOf(messages),
           stream: false,
+          schoolCode: school?.schoolCode,
+          studentNumber: school?.studentNumber,
         },
         controller.signal,
       );
@@ -300,6 +322,49 @@ export default function Studio() {
     setEnded(false);
   }
 
+  async function selectSchool(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError('');
+    try {
+      const response = await request('school-context/select', { schoolCode, studentNumber });
+      const data = await response.json();
+      const selected = { schoolCode: data.school.code, schoolName: data.school.name, studentNumber: data.studentNumber || '' };
+      localStorage.setItem(schoolStorageKey, JSON.stringify(selected));
+      setSchool(selected);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '学校情報を確認できませんでした。');
+    }
+  }
+  function leaveSchool() {
+    stop();
+    localStorage.removeItem(schoolStorageKey);
+    setSchool(null);
+    setMessages(initial);
+    setSchoolCode('');
+    setStudentNumber('');
+  }
+  if (!schoolReady) return null;
+  if (!school)
+    return (
+      <main className="school-selection">
+        <form onSubmit={selectSchool}>
+          <span>EMPATHY AI COMPANION</span>
+          <h1>利用する学校を選択</h1>
+          <p>学校コードを入力してください。学生番号は個人の時間割・課題・出欠を確認する場合のみ入力します。</p>
+          <label>
+            学校コード
+            <input required value={schoolCode} onChange={(e) => setSchoolCode(e.target.value)} />
+          </label>
+          <label>
+            学生番号（任意）
+            <input value={studentNumber} onChange={(e) => setStudentNumber(e.target.value)} />
+          </label>
+          {error && <p className="feedback error">{error}</p>}
+          <button>相談をはじめる</button>
+        </form>
+      </main>
+    );
+
   return (
     <div className="counsel-app">
       <header className="app-header">
@@ -310,6 +375,13 @@ export default function Studio() {
           <h1>よりそいAI相談室</h1>
         </a>
         <div className="header-actions">
+          <span className="selected-school">
+            {school.schoolName}
+            {school.studentNumber ? ' / ' + school.studentNumber : ''}
+          </span>
+          <button type="button" className="school-logout" onClick={leaveSchool}>
+            学校を変更
+          </button>
           <label className="toggle-label">
             <span>音声</span>
             <button type="button" className="switch" role="switch" aria-checked={audio} aria-label="音声" onClick={toggleAudio}>

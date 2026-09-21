@@ -27,9 +27,7 @@ export default function TeachersPage() {
               <h2>
                 {teacher.name} <small>{roleLabel[teacher.role]}</small>
               </h2>
-              <p>
-                @{teacher.username} · {teacher.department || '部署未登録'} · {teacher.subjects || '担当未登録'}
-              </p>
+              <p>@{teacher.username}</p>
             </div>
             {manager && teacher.role !== 'super_admin' && (
               <div className="admin-actions">

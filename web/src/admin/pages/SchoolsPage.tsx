@@ -11,7 +11,7 @@ export default function SchoolsPage() {
         <div>
           <p className="admin-kicker">SCHOOLS</p>
           <h1>学校管理</h1>
-          <p>登録されている学校の参照と管理を行います。</p>
+          <p>登録済みの学校と、一般利用画面で入力する学校コードを確認できます。</p>
         </div>
         {superAdmin && (
           <Link className="admin-primary" to="/admin/schools/new">
@@ -23,10 +23,16 @@ export default function SchoolsPage() {
         {visibleSchools.map((school) => (
           <article className="admin-card" key={school.id}>
             <h2>{school.name}</h2>
-            <p>
-              {school.code} · {school.address || '住所未登録'} · {school.phone || '電話未登録'}
+            <p className="school-code">
+              学校コード: <code>{school.code}</code>
+              <button type="button" onClick={() => void navigator.clipboard.writeText(school.code)}>
+                コピー
+              </button>
             </p>
-            <small>学校の削除は運用スクリプトのみで行えます。</small>
+            <p>
+              {school.address || '住所未登録'} ・ {school.phone || '電話番号未登録'}
+            </p>
+            <small>この学校コードを一般利用画面で入力します。</small>
             {manager && (
               <Link className="admin-row-action" to="/admin/schools/edit" search={{ schoolId: school.id }}>
                 学校情報を編集

@@ -4,17 +4,10 @@ import { useAdmin } from '../AdminContext';
 
 export default function SettingsPage() {
   const { me, passkeys, refresh, run, setNotice } = useAdmin();
-  const [profile, setProfile] = useState({ name: '', email: '', department: '', subjects: '', responsibilities: '' });
+  const [profile, setProfile] = useState({ name: '', email: '' });
 
   useEffect(() => {
-    if (!me) return;
-    setProfile({
-      name: me.user.name,
-      email: me.user.email,
-      department: me.user.department,
-      subjects: me.user.subjects,
-      responsibilities: me.user.responsibilities,
-    });
+    if (me) setProfile({ name: me.user.name, email: me.user.email });
   }, [me]);
 
   const save = (event: FormEvent) => {
@@ -25,7 +18,6 @@ export default function SettingsPage() {
       setNotice('プロフィールを更新しました。');
     });
   };
-
   const issuePassword = () =>
     run(async () => {
       const result = await adminApi('auth/password/issue', { method: 'POST', body: '{}' });
@@ -46,36 +38,21 @@ export default function SettingsPage() {
         <div className="admin-grid">
           <input
             required
+            placeholder="氏名"
             value={profile.name}
             onChange={(event) => setProfile({ ...profile, name: event.target.value })}
-            placeholder="氏名"
           />
           <input
+            type="email"
+            placeholder="メールアドレス"
             value={profile.email}
             onChange={(event) => setProfile({ ...profile, email: event.target.value })}
-            placeholder="メールアドレス"
-          />
-          <input
-            value={profile.department}
-            onChange={(event) => setProfile({ ...profile, department: event.target.value })}
-            placeholder="部署・学年"
-          />
-          <input
-            value={profile.subjects}
-            onChange={(event) => setProfile({ ...profile, subjects: event.target.value })}
-            placeholder="担当教科"
-          />
-          <input
-            value={profile.responsibilities}
-            onChange={(event) => setProfile({ ...profile, responsibilities: event.target.value })}
-            placeholder="担当・役割"
           />
         </div>
         <button className="admin-primary">プロフィールを保存</button>
       </form>
       <div className="admin-card">
         <h2>Passkey</h2>
-        <p>Passkeyは複数の端末で登録できます。最後の1件は削除できません。</p>
         <div className="key-add">
           <span>ユーザー名: {me?.user.username}</span>
           <button className="admin-primary" onClick={() => void issuePassword()}>
@@ -94,7 +71,6 @@ export default function SettingsPage() {
               onClick={() =>
                 void run(async () => {
                   await adminApi('auth/passkeys/' + passkey.id, { method: 'DELETE' });
-                  setNotice('Passkeyを削除しました。もう一度ログインしてください。');
                   window.location.assign('/admin');
                 })
               }
