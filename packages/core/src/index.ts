@@ -1,130 +1,175 @@
-export interface LiveComment {
-  id: string;
-  text: string;
-  author: string;
-  publishedAt: string;
-}
-export interface CommentPage {
-  comments: LiveComment[];
-  nextPageToken?: string;
-  pollingIntervalMillis: number;
-  ended: boolean;
-}
-export interface LivePorts {
-  poll(token: string | undefined, signal: AbortSignal): Promise<CommentPage>;
-  speak(comment: LiveComment, signal: AbortSignal): Promise<void>;
-  onError(error: unknown): void;
-  onQueue?(length: number, dropped: number): void;
-  onEnd?(): void;
-}
-export function videoIdFromInput(input: string): string {
-  const value = input.trim();
-  if (/^[\w-]{11}$/.test(value)) return value;
-  try {
-    const url = new URL(value);
-    const host = url.hostname.toLowerCase();
-    const id =
-      host === 'youtu.be'
-        ? url.pathname.slice(1)
-        : ['youtube.com', 'www.youtube.com', 'm.youtube.com'].includes(host)
-          ? url.searchParams.get('v') || url.pathname.match(/^\/live\/([\w-]+)/)?.[1]
-          : null;
-    if (id && /^[\w-]{11}$/.test(id)) return id;
-  } catch {}
-  throw new Error('YouTubeの動画URLまたは11文字の動画IDを入力してください。');
-}
-export function wait(ms: number, signal: AbortSignal): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (signal.aborted) return reject(signal.reason);
-    const abort = () => {
-      clearTimeout(timer);
-      reject(signal.reason);
-    };
-    const timer = setTimeout(() => {
-      signal.removeEventListener('abort', abort);
-      resolve();
-    }, ms);
-    signal.addEventListener('abort', abort, { once: true });
-  });
-}
-/** UI-independent polling and bounded sequential playback. */
-export class LiveSession {
-  private controller = new AbortController();
-  private queue: LiveComment[] = [];
-  private seen = new Set<string>();
-  private dropped = 0;
-  private started = false;
-  private startedAt = 0;
-  constructor(
-    private ports: LivePorts,
-    private maxQueue = 50,
-  ) {}
-  stop() {
-    this.controller.abort();
-    this.queue = [];
-    this.report();
-  }
-  async run() {
-    if (this.started) throw new Error('Session already started');
-    this.started = true;
-    this.startedAt = Date.now();
-    await Promise.all([this.poll(), this.play()]);
-  }
-  private report() {
-    this.ports.onQueue?.(this.queue.length, this.dropped);
-  }
-  private async poll() {
-    const signal = this.controller.signal;
-    let token: string | undefined;
-    try {
-      while (!signal.aborted) {
-        const page = await this.ports.poll(token, signal);
-        if (signal.aborted) return;
-        for (const comment of page.comments) {
-          if (this.seen.has(comment.id)) continue;
-          this.seen.add(comment.id);
-          if (this.seen.size > 10000) this.seen.delete(this.seen.values().next().value!);
-          if (Date.parse(comment.publishedAt) < this.startedAt || !comment.text.trim()) continue;
-          if (this.queue.length >= this.maxQueue) {
-            this.queue.shift();
-            this.dropped++;
-          }
-          this.queue.push(comment);
-        }
-        this.report();
-        if (page.ended) {
-          this.ports.onEnd?.();
-          this.stop();
-          return;
-        }
-        if (!page.nextPageToken) throw new Error('YouTubeから継続トークンを取得できませんでした。');
-        token = page.nextPageToken;
-        await wait(Math.max(1000, page.pollingIntervalMillis), signal);
+export type ChatMessage = { role: 'user' | 'assistant'; content: string };
+
+/** Incremental sentence segmentation, with a hard limit even without punctuation. */
+export class SentenceBuffer {
+  private pending = '';
+  constructor(private limit = 100) {}
+  push(delta: string): string[] {
+    this.pending += delta;
+    const chunks: string[] = [];
+    while (this.pending) {
+      const boundary = /[。！？!?\n]/u.exec(this.pending);
+      let end = boundary && boundary.index < this.limit ? boundary.index + 1 : 0;
+      if (!end && this.pending.length >= this.limit) {
+        const prefix = this.pending.slice(0, this.limit);
+        const soft = Math.max(prefix.lastIndexOf('、'), prefix.lastIndexOf('，'), prefix.lastIndexOf(' '));
+        end = soft >= this.limit / 2 ? soft + 1 : this.limit;
+        const code = this.pending.charCodeAt(end - 1);
+        if (code >= 0xd800 && code <= 0xdbff) end--;
       }
-    } catch (error) {
-      if (!signal.aborted) {
-        this.ports.onError(error);
-        this.stop();
+      if (!end) break;
+      const text = this.pending.slice(0, end).trim();
+      this.pending = this.pending.slice(end);
+      if (text) chunks.push(text);
+    }
+    return chunks;
+  }
+  flush(): string[] {
+    const text = this.pending.trim();
+    this.pending = '';
+    return text ? [text] : [];
+  }
+}
+
+export type ChatEvent = { type: 'delta'; text: string } | { type: 'done' } | { type: 'error'; message: string };
+/** SSE parsing across arbitrary UTF-8/network boundaries. */
+export async function* readChatStream(response: Response, signal?: AbortSignal): AsyncGenerator<ChatEvent> {
+  if (!response.body) throw new Error('応答ストリームがありません。');
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  const parse = (frame: string): ChatEvent | undefined => {
+    const data = frame
+      .split('\n')
+      .filter((line) => line.startsWith('data:'))
+      .map((line) => line.slice(5).trimStart())
+      .join('\n');
+    if (!data) return;
+    const event = JSON.parse(data) as ChatEvent;
+    if (event.type === 'delta' && typeof event.text === 'string') return event;
+    if (event.type === 'done') return event;
+    if (event.type === 'error' && typeof event.message === 'string') return event;
+    throw new Error('応答形式が正しくありません。');
+  };
+  const abort = () => {
+    void reader.cancel().catch(() => {});
+  };
+  signal?.addEventListener('abort', abort, { once: true });
+  try {
+    signal?.throwIfAborted();
+    while (true) {
+      const { done, value } = await reader.read();
+      signal?.throwIfAborted();
+      buffer += decoder.decode(value, { stream: !done });
+      // Normalize CRLF only when the complete delimiter has arrived.
+      buffer = buffer.replace(/\r\n/g, '\n');
+      let index: number;
+      while ((index = buffer.indexOf('\n\n')) >= 0) {
+        const event = parse(buffer.slice(0, index));
+        buffer = buffer.slice(index + 2);
+        if (event) {
+          yield event;
+          if (event.type === 'done' || event.type === 'error') return;
+        }
+      }
+      if (buffer.length > 100000) throw new Error('応答データが大きすぎます。');
+      if (done) break;
+    }
+    if (buffer.trim()) {
+      const event = parse(buffer);
+      if (event) {
+        yield event;
+        if (event.type === 'done' || event.type === 'error') return;
       }
     }
+    throw new Error('回答の受信が途中で終了しました。もう一度お試しください。');
+  } finally {
+    signal?.removeEventListener('abort', abort);
+    await reader.cancel().catch(() => {});
+    reader.releaseLock();
   }
-  private async play() {
-    const signal = this.controller.signal;
+}
+
+type AudioResult = { audio: ArrayBuffer } | { error: unknown };
+export interface SpeechPorts {
+  synthesize(text: string, signal: AbortSignal): Promise<ArrayBuffer>;
+  play(audio: ArrayBuffer, text: string): Promise<void>;
+  stop(): void;
+  onError(error: unknown): void;
+}
+/** Prepare at most two segments ahead; playback always follows input order. */
+export class SpeechQueue {
+  private controller = new AbortController();
+  private items: { text: string; result?: Promise<AudioResult> }[] = [];
+  private next = 0;
+  private preparing = 0;
+  private closed = false;
+  private wake?: () => void;
+  private completion: Promise<void>;
+  constructor(private ports: SpeechPorts) {
+    this.completion = this.consume();
+  }
+  enqueue(text: string) {
+    if (this.closed || this.controller.signal.aborted) return;
+    if (this.items.length >= 160) {
+      this.ports.onError(new Error('回答が長いため音声を停止しました。'));
+      this.cancel();
+      return;
+    }
+    this.items.push({ text });
+    this.prepare();
+    this.wake?.();
+  }
+  private prepare() {
+    while (!this.controller.signal.aborted && this.preparing < this.items.length && this.preparing < this.next + 2) {
+      const item = this.items[this.preparing++];
+      item.result = Promise.resolve()
+        .then(() => {
+          this.controller.signal.throwIfAborted();
+          return this.ports.synthesize(item.text, this.controller.signal);
+        })
+        .then(
+          (audio) => ({ audio }),
+          (error) => ({ error }),
+        );
+    }
+  }
+  finish() {
+    this.closed = true;
+    this.wake?.();
+    return this.completion;
+  }
+  cancel() {
+    this.controller.abort();
+    this.closed = true;
+    this.ports.stop();
+    this.wake?.();
+  }
+  private async consume() {
     try {
-      while (!signal.aborted) {
-        const comment = this.queue.shift();
-        this.report();
-        if (!comment) {
-          await wait(100, signal);
+      while (!this.controller.signal.aborted) {
+        const item = this.items[this.next];
+        if (!item) {
+          if (this.closed) return;
+          await new Promise<void>((resolve) => {
+            this.wake = resolve;
+          });
+          this.wake = undefined;
           continue;
         }
-        await this.ports.speak(comment, signal);
+        const result = await item.result!;
+        if (this.controller.signal.aborted) return;
+        if ('error' in result) throw result.error;
+        await this.ports.play(result.audio, item.text);
+        item.result = undefined;
+        this.next++;
+        this.prepare();
       }
     } catch (error) {
-      if (!signal.aborted) {
-        this.ports.onError(error);
-        this.stop();
-      }
+      if (!this.controller.signal.aborted) this.ports.onError(error);
+      this.cancel();
+    } finally {
+      this.items = [];
     }
   }
 }

@@ -100,9 +100,6 @@ export class Model {
   public resumeAudio() {
     return this._lipSync!.audio.resume();
   }
-  public get recordingStream() {
-    return this._lipSync?.recording.stream;
-  }
   public stopSpeaking() {
     this._lipSync?.stop();
   }

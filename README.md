@@ -1,24 +1,14 @@
-# Live AI Supporter
+# よりそいAI相談室
 
-YouTube LiveのコメントをVTuberが読み上げる配信支援ツールです。VOICEVOXで生成した音声に合わせてVRMの口を動かし、画面と音声を録画できます。サンプルキャラクターはずんだもんです。
+学習・進路・学校生活の相談に、3Dキャラクターが応えるチャットサービスです。OrcaRouterから届く回答を表示しながら、文ごとにVOICEVOXで音声を生成して順番に再生します。キャラクターは音声に合わせて口を動かします。サンプルモデル・音声はずんだもんです。
 
 ## ローカル環境の起動
 
-### 必要なもの
-
-- Node.js 22.12以上（TanStack Startの開発・ビルド用）
-- pnpm
-- Docker（起動しておく）
-- ChromeまたはEdge
-- YouTube Data API v3のAPIキーと、チャットが有効な配信中の動画
-
-音声とリップシンクだけを試す場合は、YouTubeのAPIキーと動画は不要です。
-
-以下のコマンドは、すべてプロジェクトルートで実行します。
+Node.js（使用するViteに対応したバージョン）、pnpm、Dockerを用意し、Dockerを起動してください。AIへの接続にはOrcaRouterのAPIキーが必要です。以下はすべてプロジェクトルートで実行します。
 
 ### 1. 依存関係をインストールする
 
-pnpmが未インストールの場合は、先に `npm install --global pnpm@11` を実行してください。
+pnpmが未インストールの場合は、先に `npm install --global pnpm@11` を実行します。
 
 ```sh
 pnpm install
@@ -26,25 +16,27 @@ pnpm install
 
 ### 2. 環境変数を設定する
 
-`server/.dev.vars.example` をコピーして `server/.dev.vars` を作成し、次の値を設定します。既存のファイルがある場合は、その内容を編集してください。
+`server/.dev.vars.example` をコピーして `server/.dev.vars` を作り、次の値を設定します。既存ファイルがある場合は編集してください。
 
 ```dotenv
 VOICEVOX_API_ROOT_URL=http://127.0.0.1:50021
-YOUTUBE_API_KEY=取得したAPIキー
+ORCAROUTER_API_KEY=取得したAPIキー
+ORCAROUTER_MODEL=openai/gpt-5
+ORCAROUTER_BASE_URL=https://api.orcarouter.ai/v1
 ```
 
-APIキーは[Google Cloud Console](https://console.cloud.google.com/apis/library/youtube.googleapis.com)でYouTube Data API v3を有効にし、「APIとサービス → 認証情報」で作成します。
+モデルにはOrcaRouterで利用できるResponses API対応モデルを指定します。APIキーはフロントエンドには設定しません。
 
 ### 3. VOICEVOXを起動する
 
-ターミナルを3つ使います。まず**ターミナル1**でVOICEVOXのCPU版を起動します。
+ターミナルを3つ使います。**ターミナル1**でCPU版エンジンを起動します。
 
 ```sh
 docker pull voicevox/voicevox_engine:cpu-latest
 docker run --rm --name live-ai-supporter-voicevox -p 127.0.0.1:50021:50021 voicevox/voicevox_engine:cpu-latest
 ```
 
-ブラウザで http://127.0.0.1:50021/version を開き、バージョンが表示されるまで待ちます。
+http://127.0.0.1:50021/version を開き、バージョンが表示されるまで待ちます。
 
 ### 4. バックエンドを起動する
 
@@ -54,7 +46,7 @@ docker run --rm --name live-ai-supporter-voicevox -p 127.0.0.1:50021:50021 voice
 pnpm dev:server
 ```
 
-Webのビルド後、Honoが http://127.0.0.1:8787 で起動します。http://127.0.0.1:8787/api を開き、`"status": "ok"` が表示されれば準備完了です。
+Webのビルド後、Honoが http://127.0.0.1:8787 で起動します。http://127.0.0.1:8787/api で `"status": "ok"` を確認できます。
 
 ### 5. フロントエンドを起動する
 
@@ -64,37 +56,37 @@ Webのビルド後、Honoが http://127.0.0.1:8787 で起動します。http://1
 pnpm dev:web
 ```
 
-ChromeまたはEdgeで **http://localhost:3000** を開いてください。使用中は3つのターミナルを開いたままにします。
+ブラウザで **http://localhost:3000** を開きます。使用中は3つのターミナルを開いたままにしてください。
 
-### 6. 動作を確認する
+### 6. 相談して動作を確認する
 
-1. キャラクターの表示を待ち、「音声テスト」を押します。声が再生され、口が動くことを確認します。
-2. 配信中のYouTube動画URLまたは動画IDを入力します。
-3. 「録画・読み上げ開始」を押し、画面共有でこのアプリのタブを選びます。
-4. YouTubeに新しいコメントを投稿し、キャラクターが読み上げることを確認します。
-5. 「停止」を押し、「録画ファイルを保存」で動画をダウンロードします。
+1. キャラクターの表示を待ち、入力欄に「勉強の計画を一緒に考えて」と入力して送信します。
+2. 回答が順次表示され、キャラクターが読み上げながら口を動かすことを確認します。
+3. 続けて質問すると、それまでの会話を踏まえた回答が届きます。
+4. 音声・字幕は画面上部で切り替えられます。回答中の停止ボタンで生成と再生を止められます。
+5. 「相談をまとめる」で要約を作り、コピーして共有できます。
 
-読み上げ音声は自動で録画に含まれます。録画はローカルに保存されます。
+会話は現在の画面内で保持します。ページを再読み込みするとリセットされます。相談内容と直近の会話履歴は回答生成のためOrcaRouterへ、読み上げる文章は設定したVOICEVOXへ送られます。
 
 ### 終了・再起動
 
-WebとHonoは、それぞれのターミナルで `Ctrl+C` を押して停止します。VOICEVOXは次のコマンドで停止します。
+WebとHonoは各ターミナルで `Ctrl+C` を押して停止します。VOICEVOXは次のコマンドで停止します。
 
 ```sh
 docker stop live-ai-supporter-voicevox
 ```
 
-次回はDockerを起動し、手順3〜5を実行してください。イメージ取得済みなら `docker pull` は省略できます。
+次回はDockerを起動し、手順3〜5を実行します。取得済みなら `docker pull` は省略できます。
 
-## プロジェクト構成
+## 構成
 
 | ディレクトリ | 内容 |
 | --- | --- |
-| `web/` | TanStack StartのSSGフロントエンド、VRM表示、音声再生、録画 |
-| `server/` | HonoによるYouTube・VOICEVOX連携API |
-| `packages/core/` | コメント取得・読み上げキューの共通処理 |
+| `web/` | TanStack StartのSSG画面、チャット、VRM表示・リップシンク |
+| `server/` | Hono、OrcaRouterの回答ストリーム、VOICEVOX音声合成 |
+| `packages/core/` | SSE解析、文分割、音声の先行生成と順次再生 |
 
-フロントエンドの `/api/*` リクエストはHonoへ転送されます。フロントの開発については[web/README.md](web/README.md)を参照してください。
+音声は文ごとのWAVを先行生成する方式です。回答全文の完成を待たずに再生を始め、最大2文分の生成を進めながら発話順を保ちます。
 
 ## テスト・ビルド
 
@@ -106,22 +98,18 @@ pnpm build
 
 ## Cloudflare Workersへのデプロイ
 
-`web/dist/client` の静的ファイルとHono APIを、`server/wrangler.jsonc` で定義した1つのWorkerにデプロイします。
+静的フロントエンドとHono APIを、`server/wrangler.jsonc` の1つのWorkerとして配信します。
 
 ```sh
 pnpm deploy:check
 pnpm --filter live-ai-supporter-server exec wrangler login
-pnpm --filter live-ai-supporter-server exec wrangler secret put YOUTUBE_API_KEY
+pnpm --filter live-ai-supporter-server exec wrangler secret put ORCAROUTER_API_KEY
+pnpm --filter live-ai-supporter-server exec wrangler secret put ORCAROUTER_MODEL
+pnpm --filter live-ai-supporter-server exec wrangler secret put ORCAROUTER_BASE_URL
 pnpm --filter live-ai-supporter-server exec wrangler secret put VOICEVOX_API_ROOT_URL
 pnpm deploy:cloudflare
 ```
 
-本番の `VOICEVOX_API_ROOT_URL` にはCloudflareから接続できるエンジンのURLを設定してください。`server/.dev.vars` はローカル開発専用です。
+本番のVOICEVOX URLにはCloudflareから接続できるエンジンを指定します。`server/.dev.vars` はローカル開発専用です。
 
-## 参考
-
-- [VOICEVOX Engine](https://github.com/VOICEVOX/voicevox_engine)
-- [YouTube Live Chat API](https://developers.google.com/youtube/v3/live/docs/liveChatMessages/list)
-- [TanStack Start](https://tanstack.com/start/latest/docs/framework/react/overview)
-
-音声・キャラクター・モデルの利用には各配布元の利用条件が適用されます。画面には `VOICEVOX:ずんだもん` を表示しています。
+音声・モデルには各配布元の利用条件が適用されます。画面に `VOICEVOX:ずんだもん` を表示しています。

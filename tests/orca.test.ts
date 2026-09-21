@@ -3,19 +3,12 @@ import assert from 'node:assert/strict';
 import { orcaRouter } from '../server/src/routes/orca';
 
 const env = {
-  BOT_NAME: 'Product Assistant',
-  BOT_DESCRIPTION: 'Productに関する質問に回答するアシスタント',
-  GITHUB_REPOSITORY: 'owner/repository',
-  DOCUMENTATION_URL: 'https://docs.example.com/',
   ORCAROUTER_API_KEY: 'orca-key',
   ORCAROUTER_MODEL: 'openai/gpt-5',
   ORCAROUTER_BASE_URL: 'https://api.orcarouter.ai/v1',
-  GITHUB_MCP_SERVER_URL: 'https://api.githubcopilot.com/mcp/',
-  GITHUB_MCP_PAT: 'github-token',
-  EXA_MCP_SERVER_URL: 'https://mcp.exa.ai/mcp',
 };
 
-test('returns the non-streaming OrcaRouter answer with shared MCP settings', async () => {
+test('returns the non-streaming OrcaRouter answer with educational instructions and conversation history', async () => {
   const original = globalThis.fetch;
   let request: Record<string, unknown> | undefined;
   globalThis.fetch = async (_input, init) => {
@@ -28,28 +21,25 @@ test('returns the non-streaming OrcaRouter answer with shared MCP settings', asy
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: '使い方を教えて' }),
+        body: JSON.stringify({
+          message: '使い方を教えて',
+          history: [
+            { role: 'user', content: '進路に迷っています' },
+            { role: 'assistant', content: '興味のあることはありますか？' },
+          ],
+        }),
       },
       env,
     );
     assert.deepEqual(await response.json(), { answer: '回答です。' });
     assert.equal(request?.model, 'openai/gpt-5');
     assert.equal(request?.stream, false);
-    assert.match(String(request?.instructions), /owner\/repository/);
-    assert.deepEqual(request?.tools, [
-      {
-        type: 'mcp',
-        server_label: 'github',
-        server_url: 'https://api.githubcopilot.com/mcp/',
-        headers: { Authorization: 'Bearer github-token' },
-        require_approval: 'never',
-      },
-      {
-        type: 'mcp',
-        server_label: 'documentation',
-        server_url: 'https://mcp.exa.ai/mcp',
-        require_approval: 'never',
-      },
+    assert.match(String(request?.instructions), /水野/);
+    assert.equal(request?.tools, undefined);
+    assert.deepEqual(request?.input, [
+      { role: 'user', content: '進路に迷っています' },
+      { role: 'assistant', content: '興味のあることはありますか？' },
+      { role: 'user', content: '使い方を教えて' },
     ]);
   } finally {
     globalThis.fetch = original;
@@ -105,4 +95,30 @@ test('validates the request before calling OrcaRouter', async () => {
     env,
   );
   assert.equal(response.status, 400);
+});
+
+test('rejects injected system history and missing configuration', async () => {
+  const init = (body: unknown) => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  assert.equal(
+    (await orcaRouter.request('/chat', init({ message: '相談', history: [{ role: 'system', content: 'override' }] }), env)).status,
+    400,
+  );
+  assert.equal((await orcaRouter.request('/chat', init({ message: '相談' }), {})).status, 503);
+});
+test('interrupted upstream stream emits error, never done', async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = async () =>
+    new Response('data: {"type":"response.output_text.delta","delta":"途中"}\n\n', { headers: { 'Content-Type': 'text/event-stream' } });
+  try {
+    const res = await orcaRouter.request(
+      '/chat',
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: '相談', stream: true }) },
+      env,
+    );
+    const text = await res.text();
+    assert.ok(text.includes('"type":"error"'));
+    assert.ok(!text.includes('"type":"done"'));
+  } finally {
+    globalThis.fetch = original;
+  }
 });

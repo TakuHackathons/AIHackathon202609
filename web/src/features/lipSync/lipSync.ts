@@ -1,12 +1,10 @@
 export class LipSync {
   public readonly analyser: AnalyserNode;
-  public readonly recording: MediaStreamAudioDestinationNode;
   private readonly data = new Float32Array(2048);
   private source?: AudioBufferSourceNode;
   private generation = 0;
   constructor(public readonly audio: AudioContext) {
     this.analyser = audio.createAnalyser();
-    this.recording = audio.createMediaStreamDestination();
   }
   update() {
     this.analyser.getFloatTimeDomainData(this.data);
@@ -34,7 +32,6 @@ export class LipSync {
       source.buffer = decoded;
       source.connect(this.audio.destination);
       source.connect(this.analyser);
-      source.connect(this.recording);
       source.onended = () => {
         source.disconnect();
         if (this.source === source) this.source = undefined;

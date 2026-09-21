@@ -7,8 +7,8 @@ export const Route = createRootRoute({
     meta: [
       { charSet: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-      { title: 'Live AI Supporter' },
-      { name: 'description', content: 'YouTube LiveのコメントをVTuberが読み上げる配信サポートツール' },
+      { title: 'よりそいAI相談室' },
+      { name: 'description', content: '学習や進路の悩みを、3Dキャラクターと一緒に考えるAI相談サービス' },
     ],
     links: [
       { rel: 'stylesheet', href: styles },
@@ -19,7 +19,7 @@ export const Route = createRootRoute({
   notFoundComponent: () => (
     <main>
       <h1>ページが見つかりません</h1>
-      <a href="/">スタジオへ戻る</a>
+      <a href="/">相談室へ戻る</a>
     </main>
   ),
 });

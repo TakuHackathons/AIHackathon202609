@@ -7,8 +7,8 @@ import ts from 'typescript';
 const client = fileURLToPath(new URL('../dist/client/', import.meta.url));
 const html = readFileSync(path.join(client, 'index.html'), 'utf8');
 // Verify real page HTML, not just an empty SPA shell.
-assert.ok(html.includes('<h1>Live AI Supporter</h1>'));
-assert.ok(html.includes('録画・読み上げ開始'));
+assert.ok(html.includes('<h1>よりそいAI相談室</h1>'));
+assert.ok(html.includes('相談中'));
 assert.ok(html.includes('VOICEVOX:ずんだもん'));
 assert.ok(html.includes('<html lang="ja">'));
 assert.ok(!html.includes('/_next/'));

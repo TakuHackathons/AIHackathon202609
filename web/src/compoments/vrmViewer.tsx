@@ -1,19 +1,28 @@
 import { useContext, useEffect, useRef } from 'react';
 import { ViewerContext } from '../features/vrmViewer/viewerContext';
 import { buildUrl } from '@/utils/buildUrl';
-
 export function VrmViewer() {
   const { viewer } = useContext(ViewerContext);
   const canvas = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     if (!canvas.current) return;
-    viewer.setup(canvas.current);
-    viewer.loadVrm(buildUrl('/vrm/Zundamon_VRM_10.vrm'));
-    return () => viewer.dispose();
+    const element = canvas.current;
+    try {
+      viewer.setup(element);
+      viewer.loadVrm(buildUrl('/vrm/Zundamon_VRM_10.vrm'));
+    } catch {
+      viewer.error = '3D表示を開始できませんでした。ブラウザのWebGL設定を確認してください。';
+    }
+    const observer = new ResizeObserver(() => viewer.resize());
+    if (element.parentElement) observer.observe(element.parentElement);
+    return () => {
+      observer.disconnect();
+      viewer.dispose();
+    };
   }, [viewer]);
   return (
-    <div style={{ position: 'absolute', inset: 0, width: '100%', height: '100svh', zIndex: -1 }}>
-      <canvas ref={canvas} style={{ height: '100%', width: '100%' }} />
+    <div className="vrm-canvas">
+      <canvas ref={canvas} aria-label="ずんだもんの3Dモデル" />
     </div>
   );
 }
