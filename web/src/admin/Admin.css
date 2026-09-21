@@ -51,7 +51,7 @@
   letter-spacing: 0.08em;
 }
 
-.admin-sidebar button {
+.admin-sidebar a {
   width: 100%;
   padding: 11px 12px;
   border: 0;
@@ -63,11 +63,11 @@
   cursor: pointer;
 }
 
-.admin-sidebar button:hover {
+.admin-sidebar a:hover {
   background: #f0f6f9;
 }
 
-.admin-sidebar button.active {
+.admin-sidebar a.active {
   background: #e7f3f9;
   color: #1475a8;
   font-weight: 700;
@@ -195,6 +195,29 @@
   padding: 8px 11px;
 }
 
+.admin-row-action,
+.admin-secondary,
+.admin-actions a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #cbdbe4;
+  border-radius: 8px;
+  background: #fff;
+  color: #286f96;
+  padding: 8px 11px;
+  font-size: 13px;
+}
+
+.admin-row-action {
+  margin-top: 12px;
+}
+
+.admin-secondary {
+  margin-left: 8px;
+  color: #587181;
+}
+
 .admin-primary {
   border: 0;
   border-radius: 8px;
@@ -248,7 +271,7 @@
     display: none;
   }
 
-  .admin-sidebar button {
+  .admin-sidebar a {
     width: auto;
     flex: 0 0 auto;
     white-space: nowrap;
