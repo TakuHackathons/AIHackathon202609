@@ -39,6 +39,13 @@ async function api(path: string, init: RequestInit = {}) {
   if (!response.ok) throw new Error(data.error || '操作に失敗しました。');
   return data;
 }
+function redirectToPasskeyOrigin() {
+  if (window.location.hostname !== '127.0.0.1') return false;
+  const url = new URL(window.location.href);
+  url.hostname = 'localhost';
+  window.location.replace(url);
+  return true;
+}
 function date(value: number | null) {
   return value ? new Intl.DateTimeFormat('ja-JP', { dateStyle: 'medium', timeStyle: 'short' }).format(value) : '未使用';
 }
@@ -77,6 +84,7 @@ export default function Admin() {
     setLoading(false);
   };
   useEffect(() => {
+    if (redirectToPasskeyOrigin()) return;
     refresh().catch((e) => {
       if (!String(e.message).includes('ログイン')) setError(e.message);
       setLoading(false);
@@ -111,6 +119,7 @@ export default function Admin() {
   };
   const passkeyLogin = () =>
     run(async () => {
+      if (redirectToPasskeyOrigin()) return;
       const result = await api('auth/authentication/options', { method: 'POST', body: '{}' });
       const { passwordLoginAvailable, ...options } = result;
       if (passwordLoginAvailable) {
@@ -138,6 +147,7 @@ export default function Admin() {
   };
   const registerKey = () =>
     run(async () => {
+      if (redirectToPasskeyOrigin()) return;
       const options = await api('auth/registration/options', { method: 'POST', body: JSON.stringify({ name: keyName }) });
       const response = await startRegistration({ optionsJSON: options });
       await api('auth/registration/verify', { method: 'POST', body: JSON.stringify({ response }) });
