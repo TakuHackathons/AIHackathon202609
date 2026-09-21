@@ -17,4 +17,4 @@ TanStack Start + React + three.js / VRMで作る相談画面です。環境変�
 
 Cloudflareでは静的アセットと `server/src/index.ts` のHonoを同じWorkerで配信します。`web/dist/server` はプリレンダリング専用です。開発中の `/api/*` はViteからHonoへ転送します。
 
-ルートは `src/routes/`、SSGとAPIプロキシは `vite.config.ts` で設定します。`scripts/verify-static-build.mjs` がビルド後のHTML・アセット・APIルーティング設定を検証します。
+ルートは `src/routes/`、SSGとAPIプロキシは `vite.config.ts` で設定します。

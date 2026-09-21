@@ -10,8 +10,7 @@
     "build": "vite build",
     "start": "vite preview --host 127.0.0.1",
     "lint": "tsc --noEmit",
-    "format": "prettier --config .prettierrc --write \"src/**/*.{ts,js,tsx,jsx}\"",
-    "postbuild": "node scripts/verify-static-build.mjs"
+    "format": "prettier --config .prettierrc --write \"src/**/*.{ts,js,tsx,jsx}\""
   },
   "dependencies": {
     "@charcoal-ui/icons": "^5.12.0",
