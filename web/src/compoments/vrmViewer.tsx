@@ -9,7 +9,7 @@ export function VrmViewer() {
     const element = canvas.current;
     try {
       viewer.setup(element);
-      viewer.loadVrm(buildUrl('/vrm/Zundamon_VRM_10.vrm'));
+      viewer.loadVrm(buildUrl('/vrm/beautiful_gentle_eyes_companion.vrm'));
     } catch {
       viewer.error = '3D表示を開始できませんでした。ブラウザのWebGL設定を確認してください。';
     }
