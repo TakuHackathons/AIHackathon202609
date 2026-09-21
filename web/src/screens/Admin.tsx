@@ -1,9 +1,11 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { startAuthentication, startRegistration } from '@simplewebauthn/browser';
+import './Admin.css';
 
 type Role = 'super_admin' | 'admin' | 'general';
+type AdminPage = 'dashboard' | 'schools' | 'teachers' | 'settings';
 type Teacher = {
-  id: string;
+  id: number;
   schoolId: number | null;
   username: string;
   name: string;
@@ -63,12 +65,25 @@ export default function Admin() {
     [keyName, setKeyName] = useState('この端末のPasskey');
   const [schoolForm, setSchoolForm] = useState(initialSchool),
     [teacherForm, setTeacherForm] = useState(initialTeacher),
-    [editing, setEditing] = useState<string | null>(null),
+    [editing, setEditing] = useState<number | null>(null),
     [schoolEditing, setSchoolEditing] = useState<School | null>(null);
+  const [page, setPage] = useState<AdminPage>('dashboard'),
+    [schoolCreating, setSchoolCreating] = useState(false),
+    [teacherCreating, setTeacherCreating] = useState(false);
   const [profile, setProfile] = useState({ name: '', email: '', department: '', subjects: '', responsibilities: '' });
   const [passwordLoginVisible, setPasswordLoginVisible] = useState(false);
   const manager = me?.user.role === 'super_admin' || me?.user.role === 'admin';
   const superAdmin = me?.user.role === 'super_admin';
+
+  const openPage = (next: AdminPage) => {
+    setPage(next);
+    setSchoolCreating(false);
+    setSchoolEditing(null);
+    setTeacherCreating(false);
+    setEditing(null);
+    setSchoolForm(initialSchool);
+    setTeacherForm(initialTeacher);
+  };
 
   const refresh = async () => {
     const current = await api('auth/me');
@@ -113,7 +128,7 @@ export default function Admin() {
     event.preventDefault();
     void run(async () => {
       await api('teachers/' + me!.user.id, { method: 'PATCH', body: JSON.stringify(profile) });
-      setNotice('Profile updated.');
+      setNotice('プロフィールを更新しました。');
       await refresh();
     });
   };
@@ -158,7 +173,8 @@ export default function Admin() {
     run(async () => {
       const result = await api('auth/password/issue', { method: 'POST', body: '{}' });
       setNotice(`ユーザー名: ${result.username} / パスワード: ${result.password}`);
-    });  const logout = () =>
+    });
+  const logout = () =>
     run(async () => {
       await api('auth/logout', { method: 'POST', body: '{}' });
       setMe(null);
@@ -172,6 +188,7 @@ export default function Admin() {
       const result = await api('schools', { method: 'POST', body: JSON.stringify(schoolForm) });
       setNotice('学校と管理者を登録しました。パスワード: ' + result.temporaryPassword);
       setSchoolForm(initialSchool);
+      setSchoolCreating(false);
       await refresh();
     });
   };
@@ -189,7 +206,7 @@ export default function Admin() {
         }),
       });
       setSchoolEditing(null);
-      setNotice('School updated.');
+      setNotice('学校情報を更新しました。');
       await refresh();
     });
   };
@@ -208,6 +225,7 @@ export default function Admin() {
         setNotice('招待を作成しました。パスワード: ' + result.temporaryPassword);
       }
       setEditing(null);
+      setTeacherCreating(false);
       setTeacherForm(initialTeacher);
       await refresh();
     });
@@ -254,7 +272,8 @@ export default function Admin() {
           )}
         </section>
       </main>
-    );  if (me.enrollmentRequired)
+    );
+  if (me.enrollmentRequired)
     return (
       <main className="admin-shell">
         <section className="admin-login">
@@ -284,295 +303,373 @@ export default function Admin() {
         </div>
       </header>
       <div className="admin-layout">
-        <nav>
+        <nav className="admin-sidebar" aria-label="管理メニュー">
           <strong>管理メニュー</strong>
-          <a href="#schools">学校</a>
-          <a href="#teachers">教員</a>
-          <a href="#settings">自分の設定</a>
-          <p>3Dキャラクターの設定は、今後ここへ追加できます。</p>
+          <button className={page === 'dashboard' ? 'active' : ''} onClick={() => openPage('dashboard')}>
+            概要
+          </button>
+          <button className={page === 'schools' ? 'active' : ''} onClick={() => openPage('schools')}>
+            学校管理
+          </button>
+          <button className={page === 'teachers' ? 'active' : ''} onClick={() => openPage('teachers')}>
+            教員管理
+          </button>
+          <button className={page === 'settings' ? 'active' : ''} onClick={() => openPage('settings')}>
+            アカウント設定
+          </button>
         </nav>
         <div className="admin-content">
           {(error || notice) && <p className={error ? 'admin-error' : 'admin-notice'}>{error || notice}</p>}
-          <section id="schools">
-            <p className="admin-kicker">SCHOOLS</p>
-            <h1>学校</h1>
-            {superAdmin && (
-              <form className="admin-card admin-form" onSubmit={createSchool}>
-                <h2>学校と最初の管理者を登録</h2>
-                <div className="admin-grid">
-                  <input
-                    required
-                    placeholder="学校名"
-                    value={schoolForm.name}
-                    onChange={(e) => setSchoolForm({ ...schoolForm, name: e.target.value })}
-                  />
-                  <input
-                    required
-                    placeholder="学校コード"
-                    value={schoolForm.code}
-                    onChange={(e) => setSchoolForm({ ...schoolForm, code: e.target.value })}
-                  />
-                  <input
-                    placeholder="住所"
-                    value={schoolForm.address}
-                    onChange={(e) => setSchoolForm({ ...schoolForm, address: e.target.value })}
-                  />
-                  <input
-                    placeholder="電話番号"
-                    value={schoolForm.phone}
-                    onChange={(e) => setSchoolForm({ ...schoolForm, phone: e.target.value })}
-                  />
-                  <input
-                    required
-                    placeholder="最初の管理者名"
-                    value={schoolForm.adminName}
-                    onChange={(e) => setSchoolForm({ ...schoolForm, adminName: e.target.value })}
-                  />
-                  <input
-                    required
-                    placeholder="管理者のユーザー名"
-                    value={schoolForm.username}
-                    onChange={(e) => setSchoolForm({ ...schoolForm, username: e.target.value })}
-                  />
+          {page === 'dashboard' && (
+            <section>
+              <div className="admin-page-heading">
+                <div>
+                  <p className="admin-kicker">DASHBOARD</p>
+                  <h1>概要</h1>
+                  <p>学校と教員の登録状況を確認できます。</p>
                 </div>
-                <button className="admin-primary">登録する</button>
-              </form>
-            )}
-            <div className="admin-list">
-              {schoolEditing && (
-                <form className="admin-card admin-form" onSubmit={saveSchool}>
-                  <h2>{'\u5b66\u6821\u60c5\u5831\u3092\u7de8\u96c6'}</h2>
+              </div>
+              <div className="admin-summary-grid">
+                <button className="admin-summary-card" onClick={() => openPage('schools')}>
+                  <span>学校</span>
+                  <strong>{selectedSchools.length}</strong>
+                  <small>登録されている学校</small>
+                </button>
+                <button className="admin-summary-card" onClick={() => openPage('teachers')}>
+                  <span>教員</span>
+                  <strong>{teachers.length}</strong>
+                  <small>登録されている教員</small>
+                </button>
+                <button className="admin-summary-card" onClick={() => openPage('settings')}>
+                  <span>ログイン中</span>
+                  <strong className="admin-summary-name">{me.user.name}</strong>
+                  <small>{roleLabel[me.user.role]}</small>
+                </button>
+              </div>
+            </section>
+          )}
+          {page === 'schools' && (
+            <section id="schools">
+              <div className="admin-page-heading">
+                <div>
+                  <p className="admin-kicker">SCHOOLS</p>
+                  <h1>{schoolCreating ? '学校を登録' : schoolEditing ? '学校情報を編集' : '学校管理'}</h1>
+                  {!schoolCreating && !schoolEditing && <p>登録されている学校の参照と管理を行います。</p>}
+                </div>
+                {superAdmin && !schoolCreating && !schoolEditing && (
+                  <button className="admin-primary" onClick={() => setSchoolCreating(true)}>
+                    学校を登録
+                  </button>
+                )}
+              </div>
+              {superAdmin && schoolCreating && (
+                <form className="admin-card admin-form" onSubmit={createSchool}>
+                  <h2>学校と最初の管理者を登録</h2>
                   <div className="admin-grid">
                     <input
                       required
-                      placeholder={'\u5b66\u6821\u540d'}
-                      value={schoolEditing.name}
-                      onChange={(e) => setSchoolEditing({ ...schoolEditing, name: e.target.value })}
+                      placeholder="学校名"
+                      value={schoolForm.name}
+                      onChange={(e) => setSchoolForm({ ...schoolForm, name: e.target.value })}
                     />
                     <input
                       required
-                      placeholder={'\u5b66\u6821\u30b3\u30fc\u30c9'}
-                      value={schoolEditing.code}
-                      onChange={(e) => setSchoolEditing({ ...schoolEditing, code: e.target.value })}
+                      placeholder="学校コード"
+                      value={schoolForm.code}
+                      onChange={(e) => setSchoolForm({ ...schoolForm, code: e.target.value })}
                     />
                     <input
-                      placeholder={'\u4f4f\u6240'}
-                      value={schoolEditing.address}
-                      onChange={(e) => setSchoolEditing({ ...schoolEditing, address: e.target.value })}
+                      placeholder="住所"
+                      value={schoolForm.address}
+                      onChange={(e) => setSchoolForm({ ...schoolForm, address: e.target.value })}
                     />
                     <input
-                      placeholder={'\u96fb\u8a71\u756a\u53f7'}
-                      value={schoolEditing.phone}
-                      onChange={(e) => setSchoolEditing({ ...schoolEditing, phone: e.target.value })}
+                      placeholder="電話番号"
+                      value={schoolForm.phone}
+                      onChange={(e) => setSchoolForm({ ...schoolForm, phone: e.target.value })}
+                    />
+                    <input
+                      required
+                      placeholder="最初の管理者名"
+                      value={schoolForm.adminName}
+                      onChange={(e) => setSchoolForm({ ...schoolForm, adminName: e.target.value })}
+                    />
+                    <input
+                      required
+                      placeholder="管理者のユーザー名"
+                      value={schoolForm.username}
+                      onChange={(e) => setSchoolForm({ ...schoolForm, username: e.target.value })}
                     />
                   </div>
-                  <button className="admin-primary">{'\u4fdd\u5b58'}</button>
-                  <button type="button" onClick={() => setSchoolEditing(null)}>
-                    {'\u30ad\u30e3\u30f3\u30bb\u30eb'}
+                  <button className="admin-primary">登録する</button>
+                  <button type="button" onClick={() => setSchoolCreating(false)}>
+                    キャンセル
                   </button>
                 </form>
-              )}{' '}
-              {selectedSchools.map((s) => (
-                <article className="admin-card" key={s.id}>
-                  <h2>{s.name}</h2>
-                  <p>
-                    {s.code} · {s.address || '住所未登録'} · {s.phone || '電話未登録'}
-                  </p>
-                  <small>学校の削除は運用スクリプトのみで行えます。</small>
-                  {manager && (
-                    <button type="button" onClick={() => setSchoolEditing({ ...s })}>
-                      {'\u5b66\u6821\u60c5\u5831\u3092\u7de8\u96c6'}
+              )}
+              <div className="admin-list">
+                {schoolEditing && (
+                  <form className="admin-card admin-form" onSubmit={saveSchool}>
+                    <h2>{'\u5b66\u6821\u60c5\u5831\u3092\u7de8\u96c6'}</h2>
+                    <div className="admin-grid">
+                      <input
+                        required
+                        placeholder={'\u5b66\u6821\u540d'}
+                        value={schoolEditing.name}
+                        onChange={(e) => setSchoolEditing({ ...schoolEditing, name: e.target.value })}
+                      />
+                      <input
+                        required
+                        placeholder={'\u5b66\u6821\u30b3\u30fc\u30c9'}
+                        value={schoolEditing.code}
+                        onChange={(e) => setSchoolEditing({ ...schoolEditing, code: e.target.value })}
+                      />
+                      <input
+                        placeholder={'\u4f4f\u6240'}
+                        value={schoolEditing.address}
+                        onChange={(e) => setSchoolEditing({ ...schoolEditing, address: e.target.value })}
+                      />
+                      <input
+                        placeholder={'\u96fb\u8a71\u756a\u53f7'}
+                        value={schoolEditing.phone}
+                        onChange={(e) => setSchoolEditing({ ...schoolEditing, phone: e.target.value })}
+                      />
+                    </div>
+                    <button className="admin-primary">{'\u4fdd\u5b58'}</button>
+                    <button type="button" onClick={() => setSchoolEditing(null)}>
+                      {'\u30ad\u30e3\u30f3\u30bb\u30eb'}
                     </button>
-                  )}{' '}
-                </article>
-              ))}
-            </div>
-          </section>
-          <section id="teachers">
-            <p className="admin-kicker">TEACHERS</p>
-            <h1>教員</h1>
-            {manager && (
-              <form className="admin-card admin-form" onSubmit={saveTeacher}>
-                <h2>{editing ? '教員情報を編集' : '教員を招待'}</h2>
-                <div className="admin-grid">
-                  <input
-                    required
-                    placeholder="氏名"
-                    value={teacherForm.name}
-                    onChange={(e) => setTeacherForm({ ...teacherForm, name: e.target.value })}
-                  />
-                  {!editing && (
+                  </form>
+                )}{' '}
+                {!schoolCreating &&
+                  !schoolEditing &&
+                  selectedSchools.map((s) => (
+                    <article className="admin-card" key={s.id}>
+                      <h2>{s.name}</h2>
+                      <p>
+                        {s.code} · {s.address || '住所未登録'} · {s.phone || '電話未登録'}
+                      </p>
+                      <small>学校の削除は運用スクリプトのみで行えます。</small>
+                      {manager && (
+                        <button type="button" onClick={() => setSchoolEditing({ ...s })}>
+                          {'\u5b66\u6821\u60c5\u5831\u3092\u7de8\u96c6'}
+                        </button>
+                      )}{' '}
+                    </article>
+                  ))}
+              </div>
+            </section>
+          )}
+          {page === 'teachers' && (
+            <section id="teachers">
+              <div className="admin-page-heading">
+                <div>
+                  <p className="admin-kicker">TEACHERS</p>
+                  <h1>{teacherCreating ? '教員を招待' : editing ? '教員情報を編集' : '教員管理'}</h1>
+                  {!teacherCreating && !editing && <p>教員の所属情報と権限を管理します。</p>}
+                </div>
+                {manager && !teacherCreating && !editing && (
+                  <button className="admin-primary" onClick={() => setTeacherCreating(true)}>
+                    教員を招待
+                  </button>
+                )}
+              </div>
+              {manager && (teacherCreating || editing) && (
+                <form className="admin-card admin-form" onSubmit={saveTeacher}>
+                  <h2>{editing ? '教員情報を編集' : '教員を招待'}</h2>
+                  <div className="admin-grid">
                     <input
                       required
-                      placeholder="ユーザー名"
-                      value={teacherForm.username}
-                      onChange={(e) => setTeacherForm({ ...teacherForm, username: e.target.value })}
+                      placeholder="氏名"
+                      value={teacherForm.name}
+                      onChange={(e) => setTeacherForm({ ...teacherForm, name: e.target.value })}
                     />
-                  )}
-                  <input
-                    placeholder="メールアドレス"
-                    value={teacherForm.email}
-                    onChange={(e) => setTeacherForm({ ...teacherForm, email: e.target.value })}
-                  />
-                  <input
-                    placeholder="部署・学年"
-                    value={teacherForm.department}
-                    onChange={(e) => setTeacherForm({ ...teacherForm, department: e.target.value })}
-                  />
-                  <input
-                    placeholder="担当教科"
-                    value={teacherForm.subjects}
-                    onChange={(e) => setTeacherForm({ ...teacherForm, subjects: e.target.value })}
-                  />
-                  <input
-                    placeholder="担当・役割"
-                    value={teacherForm.responsibilities}
-                    onChange={(e) => setTeacherForm({ ...teacherForm, responsibilities: e.target.value })}
-                  />
-                  {superAdmin && !editing && (
-                    <select
-                      value={teacherForm.schoolId || 0}
-                      required
-                      onChange={(e) => setTeacherForm({ ...teacherForm, schoolId: Number(e.target.value) })}
-                    >
-                      <option value="">所属する学校</option>
-                      {schools.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name}
-                        </option>
-                      ))}
+                    {!editing && (
+                      <input
+                        required
+                        placeholder="ユーザー名"
+                        value={teacherForm.username}
+                        onChange={(e) => setTeacherForm({ ...teacherForm, username: e.target.value })}
+                      />
+                    )}
+                    <input
+                      placeholder="メールアドレス"
+                      value={teacherForm.email}
+                      onChange={(e) => setTeacherForm({ ...teacherForm, email: e.target.value })}
+                    />
+                    <input
+                      placeholder="部署・学年"
+                      value={teacherForm.department}
+                      onChange={(e) => setTeacherForm({ ...teacherForm, department: e.target.value })}
+                    />
+                    <input
+                      placeholder="担当教科"
+                      value={teacherForm.subjects}
+                      onChange={(e) => setTeacherForm({ ...teacherForm, subjects: e.target.value })}
+                    />
+                    <input
+                      placeholder="担当・役割"
+                      value={teacherForm.responsibilities}
+                      onChange={(e) => setTeacherForm({ ...teacherForm, responsibilities: e.target.value })}
+                    />
+                    {superAdmin && !editing && (
+                      <select
+                        value={teacherForm.schoolId || 0}
+                        required
+                        onChange={(e) => setTeacherForm({ ...teacherForm, schoolId: Number(e.target.value) })}
+                      >
+                        <option value="">所属する学校</option>
+                        {schools.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    <select value={teacherForm.role} onChange={(e) => setTeacherForm({ ...teacherForm, role: e.target.value as Role })}>
+                      <option value="general">一般</option>
+                      <option value="admin">管理者</option>
                     </select>
-                  )}
-                  <select value={teacherForm.role} onChange={(e) => setTeacherForm({ ...teacherForm, role: e.target.value as Role })}>
-                    <option value="general">一般</option>
-                    <option value="admin">管理者</option>
-                  </select>
-                </div>
-                <button className="admin-primary">{editing ? '保存' : '招待を作成'}</button>
-                {editing && (
+                  </div>
+                  <button className="admin-primary">{editing ? '保存' : '招待を作成'}</button>
                   <button
                     type="button"
                     onClick={() => {
                       setEditing(null);
+                      setTeacherCreating(false);
                       setTeacherForm(initialTeacher);
                     }}
                   >
                     キャンセル
                   </button>
-                )}
+                </form>
+              )}
+              <div className="admin-list">
+                {!teacherCreating &&
+                  !editing &&
+                  teachers.map((t) => (
+                    <article className="admin-card teacher" key={t.id}>
+                      <div>
+                        <h2>
+                          {t.name} <small>{roleLabel[t.role]}</small>
+                        </h2>
+                        <p>
+                          @{t.username} · {t.department || '部署未登録'} · {t.subjects || '担当未登録'}
+                        </p>
+                      </div>
+                      {manager && t.role !== 'super_admin' && (
+                        <div className="admin-actions">
+                          <button
+                            onClick={() => {
+                              setEditing(t.id);
+                              setTeacherForm({ ...t, schoolId: t.schoolId || 0 });
+                            }}
+                          >
+                            編集
+                          </button>
+                          <button
+                            onClick={() =>
+                              void run(async () => {
+                                const result = await api('teachers/' + t.id + '/reset-passkeys', { method: 'POST', body: '{}' });
+                                setNotice(t.name + 'さんのPasskeyをリセットしました。パスワード: ' + result.temporaryPassword);
+                              })
+                            }
+                          >
+                            Passkeyをリセット
+                          </button>
+                          <button
+                            className="danger"
+                            onClick={() =>
+                              void run(async () => {
+                                if (!confirm(t.name + 'さんを削除しますか？')) return;
+                                await api('teachers/' + t.id, { method: 'DELETE' });
+                                await refresh();
+                              })
+                            }
+                          >
+                            削除
+                          </button>
+                        </div>
+                      )}
+                    </article>
+                  ))}
+              </div>
+            </section>
+          )}
+          {page === 'settings' && (
+            <section id="settings">
+              <div className="admin-page-heading">
+                <div>
+                  <p className="admin-kicker">ACCOUNT</p>
+                  <h1>アカウント設定</h1>
+                  <p>プロフィールとログイン方法を管理します。</p>
+                </div>
+              </div>
+              <form className="admin-card admin-form" onSubmit={saveProfile}>
+                <h2>プロフィール</h2>
+                <div className="admin-grid">
+                  <input
+                    required
+                    value={profile.name}
+                    onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+                    placeholder="氏名"
+                  />
+                  <input
+                    value={profile.email}
+                    onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+                    placeholder="メールアドレス"
+                  />
+                  <input
+                    value={profile.department}
+                    onChange={(e) => setProfile({ ...profile, department: e.target.value })}
+                    placeholder="部署・学年"
+                  />
+                  <input
+                    value={profile.subjects}
+                    onChange={(e) => setProfile({ ...profile, subjects: e.target.value })}
+                    placeholder="担当教科"
+                  />
+                  <input
+                    value={profile.responsibilities}
+                    onChange={(e) => setProfile({ ...profile, responsibilities: e.target.value })}
+                    placeholder="担当・役割"
+                  />
+                </div>
+                <button className="admin-primary">プロフィールを保存</button>
               </form>
-            )}
-            <div className="admin-list">
-              {teachers.map((t) => (
-                <article className="admin-card teacher" key={t.id}>
-                  <div>
-                    <h2>
-                      {t.name} <small>{roleLabel[t.role]}</small>
-                    </h2>
-                    <p>
-                      @{t.username} · {t.department || '部署未登録'} · {t.subjects || '担当未登録'}
-                    </p>
-                  </div>
-                  {manager && t.role !== 'super_admin' && (
-                    <div className="admin-actions">
-                      <button
-                        onClick={() => {
-                          setEditing(t.id);
-                          setTeacherForm({ ...t, schoolId: t.schoolId || 0 });
-                        }}
-                      >
-                        編集
-                      </button>
-                      <button
-                        onClick={() =>
-                          void run(async () => {
-                            const result = await api('teachers/' + t.id + '/reset-passkeys', { method: 'POST', body: '{}' });
-                            setNotice(t.name + 'さんのPasskeyをリセットしました。パスワード: ' + result.temporaryPassword);
-                          })
-                        }
-                      >
-                        Passkeyをリセット
-                      </button>
-                      <button
-                        className="danger"
-                        onClick={() =>
-                          void run(async () => {
-                            if (!confirm(t.name + 'さんを削除しますか？')) return;
-                            await api('teachers/' + t.id, { method: 'DELETE' });
-                            await refresh();
-                          })
-                        }
-                      >
-                        削除
-                      </button>
-                    </div>
-                  )}
-                </article>
-              ))}
-            </div>
-          </section>
-          <section id="settings">
-            <form className="admin-card admin-form" onSubmit={saveProfile}>
-              <h2>Profile</h2>
-              <div className="admin-grid">
-                <input
-                  required
-                  value={profile.name}
-                  onChange={(e) => setProfile({ ...profile, name: e.target.value })}
-                  placeholder="Name"
-                />
-                <input value={profile.email} onChange={(e) => setProfile({ ...profile, email: e.target.value })} placeholder="Email" />
-                <input
-                  value={profile.department}
-                  onChange={(e) => setProfile({ ...profile, department: e.target.value })}
-                  placeholder="Department"
-                />
-                <input
-                  value={profile.subjects}
-                  onChange={(e) => setProfile({ ...profile, subjects: e.target.value })}
-                  placeholder="Subjects"
-                />
-                <input
-                  value={profile.responsibilities}
-                  onChange={(e) => setProfile({ ...profile, responsibilities: e.target.value })}
-                  placeholder="Responsibilities"
-                />
-              </div>
-              <button className="admin-primary">Save profile</button>
-            </form>
-            <p className="admin-kicker">SETTINGS</p>
-            <h1>自分のPasskey</h1>
-            <div className="admin-card">
-              <p>Passkeyは複数の端末で登録できます。最後の1件は削除できません。</p>
-              <div className="key-add">
-                <span>ユーザー名: {me.user.username}</span>
-                <button className="admin-primary" onClick={issuePassword}>
-                  パスワードを発行
-                </button>
-              </div>
-              {keys.map((k) => (
-                <div className="key-row" key={k.id}>
-                  <span>
-                    <strong>{k.name}</strong>
-                    <small>
-                      登録: {date(k.createdAt)} / 最終使用: {date(k.lastUsedAt)}
-                    </small>
-                  </span>
-                  <button
-                    onClick={() =>
-                      void run(async () => {
-                        await api('auth/passkeys/' + k.id, { method: 'DELETE' });
-                        setNotice('Passkeyを削除しました。もう一度ログインしてください。');
-                        setMe(null);
-                      })
-                    }
-                  >
-                    削除
+              <div className="admin-card">
+                <h2>Passkey</h2>
+                <p>Passkeyは複数の端末で登録できます。最後の1件は削除できません。</p>
+                <div className="key-add">
+                  <span>ユーザー名: {me.user.username}</span>
+                  <button className="admin-primary" onClick={issuePassword}>
+                    パスワードを発行
                   </button>
                 </div>
-              ))}
-            </div>
-          </section>
+                {keys.map((k) => (
+                  <div className="key-row" key={k.id}>
+                    <span>
+                      <strong>{k.name}</strong>
+                      <small>
+                        登録: {date(k.createdAt)} / 最終使用: {date(k.lastUsedAt)}
+                      </small>
+                    </span>
+                    <button
+                      onClick={() =>
+                        void run(async () => {
+                          await api('auth/passkeys/' + k.id, { method: 'DELETE' });
+                          setNotice('Passkeyを削除しました。もう一度ログインしてください。');
+                          setMe(null);
+                        })
+                      }
+                    >
+                      削除
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
         </div>
       </div>
     </main>
