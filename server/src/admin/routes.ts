@@ -1,9 +1,9 @@
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { HTTPException } from 'hono/http-exception';
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import { database } from '../db';
-import { challenges, passkeys, schools, sessions, users, publicUser, type User } from '../db/schema';
+import { challenges, schools, sessions, users, publicUser, type User } from '../db/schema';
 import { authRouter } from './auth';
 import { catalogRouter } from './catalog';
 import { canAccessSchool, canGrantRole, canSetPasskeyPassword } from './authorization';
@@ -219,28 +219,4 @@ adminRouter.post('/teachers/:id/passkey-password', async (c) => {
     db.delete(challenges).where(eq(challenges.userId, current.id)),
   ]);
   return c.json({ username: current.username, password, expiresAt });
-});
-adminRouter.post('/teachers/:id/reset-passkeys', async (c) => {
-  requireManager(c);
-  const current = await teacher(c),
-    actor = c.get('user');
-  if (current.id === actor.id || !canManage(actor, current)) fail(403, 'Passkeys cannot be reset.');
-  const temporaryPassword = token(),
-    expiresAt = Date.now() + 86_400_000,
-    db = database(c.env);
-  await db.batch([
-    db
-      .update(users)
-      .set({
-        passwordHash: await passwordHash(temporaryPassword),
-        passwordExpiresAt: expiresAt,
-        authVersion: sql`${users.authVersion} + 1`,
-        updatedAt: Date.now(),
-      })
-      .where(eq(users.id, current.id)),
-    db.delete(passkeys).where(eq(passkeys.userId, current.id)),
-    db.delete(sessions).where(eq(sessions.userId, current.id)),
-    db.delete(challenges).where(eq(challenges.userId, current.id)),
-  ]);
-  return c.json({ username: current.username, temporaryPassword, expiresAt });
 });

@@ -82,25 +82,6 @@ export default function TeachersPage() {
                         {t('teachers.issuePasskeyPassword')}
                       </button>
                       <button
-                        onClick={() =>
-                          void run(async () => {
-                            const result = await adminApi('teachers/' + teacher.id + '/reset-passkeys', {
-                              method: 'POST',
-                              body: '{}',
-                            });
-                            setIssuedPassword({
-                              teacherId: teacher.id,
-                              username: result.username,
-                              password: result.temporaryPassword,
-                              expiresAt: result.expiresAt,
-                            });
-                            setNotice(t('teachers.resetDone', { name: teacher.name }));
-                          })
-                        }
-                      >
-                        {t('teachers.resetPasskey')}
-                      </button>
-                      <button
                         className="danger"
                         onClick={() =>
                           void run(async () => {
