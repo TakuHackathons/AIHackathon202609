@@ -74,14 +74,18 @@ pnpm dev:web
 
 ## seedデータ
 
-| 項目                  | 値                             |
-| --------------------- | ------------------------------ |
-| 学校名                | `Sample School`                |
-| 学校コード            | `SAMPLE-SCHOOL`                |
-| super adminユーザー名 | `super-admin`                  |
-| パスワード            | `initial-super-admin-password` |
+| 項目       | 値              |
+| ---------- | --------------- |
+| 学校名     | `Sample School` |
+| 学校コード | `SAMPLE-SCHOOL` |
 
-パスワードでログインした後にPasskeyを登録します。Passkey登録後は発行済みパスワードが無効になります。
+| 表示名             | super adminユーザー名 | パスワード                     |
+| ------------------ | --------------------- | ------------------------------ |
+| Operations Admin   | `super-admin`         | `initial-super-admin-password` |
+| Operations Admin 2 | `super-admin-2`       | `initial-super-admin-password` |
+| Operations Admin 3 | `super-admin-3`       | `initial-super-admin-password` |
+
+3人はそれぞれのユーザー名とパスワードでログインした後にPasskeyを登録します。Passkey登録後は、そのユーザーの発行済みパスワードが無効になります。
 
 ## 管理画面
 
