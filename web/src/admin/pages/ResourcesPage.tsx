@@ -3,6 +3,7 @@ import { adminApi } from '../api';
 import { useAdmin } from '../AdminContext';
 import { PageHeading, remove, useSchoolData } from '../educationShared';
 import { useAdminI18n, type AdminTranslationKey } from '../i18n';
+import CsvImportPanel from '../CsvImportPanel';
 type Resource = { id: number; kind: string; title: string; category: string; body: string; externalUrl: string };
 const blank = { kind: 'rule', title: '', category: '', body: '', externalUrl: '' };
 export default function ResourcesPage() {
@@ -42,6 +43,17 @@ export default function ResourcesPage() {
     <section>
       <PageHeading kicker={t('kicker.resources')} title={t('resources.title')} description={t('resources.description')} />
       {data.picker}
+      {manager && data.schoolId > 0 && (
+        <CsvImportPanel
+          endpoint="resources/import"
+          schoolId={data.schoolId}
+          columns="kind,title,category,body,external_url"
+          template={
+            'kind,title,category,body,external_url\nrule,Library Rules,library,Please return books by the due date,https://example.com/rules\n'
+          }
+          onImported={data.load}
+        />
+      )}
       <div className="admin-search">
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('resources.searchPlaceholder')} />
         <button onClick={() => void search()}>{t('common.search')}</button>

@@ -1,10 +1,13 @@
+import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { adminApi } from '../api';
 import { useAdmin } from '../AdminContext';
 import { useAdminI18n } from '../i18n';
+import CsvImportPanel from '../CsvImportPanel';
 export default function TeachersPage() {
-  const { teachers, manager, refresh, run, setNotice } = useAdmin();
+  const { me, schools, teachers, manager, superAdmin, refresh, run, setNotice } = useAdmin();
   const { t } = useAdminI18n();
+  const [schoolId, setSchoolId] = useState(me?.user.schoolId ?? schools[0]?.id ?? 0);
   return (
     <section>
       <div className="admin-page-heading">
@@ -19,6 +22,30 @@ export default function TeachersPage() {
           </Link>
         )}
       </div>
+      {manager && (
+        <>
+          {superAdmin && (
+            <label className="admin-school-picker">
+              {t('common.school')}
+              <select value={schoolId} onChange={(event) => setSchoolId(Number(event.target.value))}>
+                <option value={0}>{t('common.selectSchool')}</option>
+                {schools.map((school) => (
+                  <option key={school.id} value={school.id}>
+                    {school.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <CsvImportPanel
+            endpoint="teachers/import"
+            schoolId={schoolId}
+            columns="username,name,email,role"
+            template={'username,name,email,role\nteacher-001,Teacher Name,teacher@example.com,general\n'}
+            onImported={refresh}
+          />
+        </>
+      )}
       <div className="admin-list">
         {teachers.map((teacher) => (
           <article className="admin-card teacher" key={teacher.id}>

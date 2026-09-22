@@ -509,3 +509,36 @@
   justify-content: flex-end;
   margin-bottom: 1rem;
 }
+
+.csv-import-panel {
+  margin: 1rem 0;
+}
+
+.csv-import-panel > summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.csv-import-panel > code {
+  display: block;
+  margin: 0.75rem 0;
+  padding: 0.65rem;
+  overflow-x: auto;
+  border-radius: 0.5rem;
+  background: #f1f5f9;
+  white-space: nowrap;
+}
+
+.csv-credentials {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.csv-credentials code {
+  display: block;
+  padding: 0.6rem;
+  border-radius: 0.45rem;
+  background: #ecfdf5;
+  color: #166534;
+}

@@ -3,6 +3,7 @@ import { adminApi } from '../api';
 import { useAdmin } from '../AdminContext';
 import { PageHeading, remove, useSchoolData } from '../educationShared';
 import { useAdminI18n, type AdminTranslationKey } from '../i18n';
+import CsvImportPanel from '../CsvImportPanel';
 import FacilityOperationsPanel from './FacilityOperationsPanel';
 type Facility = { id: number; name: string; category: string; location: string; description: string; currentStatus?: { status: string } };
 const blank = { name: '', category: '', location: '', description: '', manualStatus: '' };
@@ -29,6 +30,15 @@ export default function FacilitiesPage() {
     <section>
       <PageHeading kicker={t('kicker.facilities')} title={t('facilities.title')} description={t('facilities.description')} />
       {data.picker}
+      {manager && data.schoolId > 0 && (
+        <CsvImportPanel
+          endpoint="facilities/import"
+          schoolId={data.schoolId}
+          columns="name,category,location,description"
+          template={'name,category,location,description\nLibrary,library,Building A,Main library\n'}
+          onImported={data.load}
+        />
+      )}
       {manager && (
         <form
           className="admin-card admin-form admin-inline-form"

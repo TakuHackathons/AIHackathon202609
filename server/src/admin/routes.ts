@@ -8,6 +8,7 @@ import { authRouter } from './auth';
 import { catalogRouter } from './catalog';
 import { canAccessSchool, canGrantRole } from './authorization';
 import { educationRouter } from './education';
+import { importRouter } from './imports';
 import {
   authenticate,
   body,
@@ -50,6 +51,7 @@ adminRouter.use('*', async (c, next) => {
 });
 adminRouter.route('/', educationRouter);
 adminRouter.route('/', catalogRouter);
+adminRouter.route('/', importRouter);
 
 function requireManager(c: AdminContext) {
   if (c.get('user').role === 'general') fail(403, 'Manager role required.');

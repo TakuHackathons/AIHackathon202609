@@ -3,6 +3,7 @@ import { adminApi } from '../api';
 import { useAdmin } from '../AdminContext';
 import { PageHeading, remove, useSchoolData } from '../educationShared';
 import { useAdminI18n } from '../i18n';
+import CsvImportPanel from '../CsvImportPanel';
 import AcademicSetupPanel from './AcademicSetupPanel';
 import CoursePlanningPanel from './CoursePlanningPanel';
 import CourseRelatedDataPanel from './CourseRelatedDataPanel';
@@ -50,6 +51,17 @@ export default function CoursesPage() {
     <section>
       <PageHeading kicker={t('kicker.courses')} title={t('courses.title')} description={t('courses.description')} />
       {data.picker}
+      {data.schoolId > 0 && (
+        <CsvImportPanel
+          endpoint="courses/import"
+          schoolId={data.schoolId}
+          columns="course_code,course_name,term_name,teacher_username,description,weekday,period_number,facility_name,valid_from,valid_to,location_note"
+          template={
+            'course_code,course_name,term_name,teacher_username,description,weekday,period_number,facility_name,valid_from,valid_to,location_note\nCS101,Introduction to CS,2026 First Semester,teacher-001,Introductory course,1,1,Room 101,2026-04-01,2026-07-31,\n'
+          }
+          onImported={data.load}
+        />
+      )}
       {manager && data.schoolId > 0 && (
         <AcademicSetupPanel schoolId={data.schoolId} terms={terms} periods={periods} reload={loadSettings} />
       )}

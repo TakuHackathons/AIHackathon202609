@@ -3,6 +3,7 @@ import { adminApi } from '../api';
 import { useAdmin } from '../AdminContext';
 import { PageHeading, remove, useSchoolData } from '../educationShared';
 import { useAdminI18n } from '../i18n';
+import CsvImportPanel from '../CsvImportPanel';
 type Student = { id: number; studentNumber: string; personality: string; considerations: string; tags: string[] };
 const blank = { studentNumber: '', personality: '', considerations: '', tags: '' };
 export default function StudentsPage() {
@@ -33,6 +34,15 @@ export default function StudentsPage() {
     <section>
       <PageHeading kicker={t('kicker.students')} title={t('students.title')} description={t('students.description')} />
       {data.picker}
+      {manager && data.schoolId > 0 && (
+        <CsvImportPanel
+          endpoint="students/import"
+          schoolId={data.schoolId}
+          columns="student_number,personality,considerations,tags"
+          template={'student_number,personality,considerations,tags\nS0001,Calm,Needs quiet explanations,careful|visual learner\n'}
+          onImported={data.load}
+        />
+      )}
       {manager && (
         <form
           className="admin-card admin-form admin-inline-form"
