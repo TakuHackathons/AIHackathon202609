@@ -2,18 +2,17 @@ import { useState } from 'react';
 import { adminApi } from '../api';
 import { useAdmin } from '../AdminContext';
 import { PageHeading, remove, useSchoolData } from '../educationShared';
+import { useAdminI18n, type AdminTranslationKey } from '../i18n';
 import FacilityOperationsPanel from './FacilityOperationsPanel';
-
 type Facility = { id: number; name: string; category: string; location: string; description: string; currentStatus?: { status: string } };
 const blank = { name: '', category: '', location: '', description: '', manualStatus: '' };
-
 export default function FacilitiesPage() {
   const { manager, run, setNotice } = useAdmin();
+  const { t } = useAdminI18n();
   const data = useSchoolData<Facility>('facilities', 'facilities');
   const [form, setForm] = useState(blank);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [operationsId, setOperationsId] = useState(0);
-
   const save = () =>
     run(async () => {
       await adminApi(editingId ? 'facilities/' + editingId : 'facilities', {
@@ -22,17 +21,13 @@ export default function FacilitiesPage() {
       });
       setForm(blank);
       setEditingId(null);
-      setNotice('Facility saved.');
+      setNotice(t('facilities.saved'));
       await data.load();
     });
-
+  const statusLabel = (status: string) => t(`facilities.${status}` as AdminTranslationKey);
   return (
     <section>
-      <PageHeading
-        kicker="FACILITIES"
-        title="Facilities"
-        description="Manage facility details, business hours, exceptions and current status."
-      />
+      <PageHeading kicker={t('kicker.facilities')} title={t('facilities.title')} description={t('facilities.description')} />
       {data.picker}
       {manager && (
         <form
@@ -42,21 +37,34 @@ export default function FacilitiesPage() {
             void save();
           }}
         >
-          <input required placeholder="Name" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
-          <input placeholder="Category" value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} />
-          <input placeholder="Location" value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })} />
+          <input
+            required
+            placeholder={t('common.name')}
+            value={form.name}
+            onChange={(event) => setForm({ ...form, name: event.target.value })}
+          />
+          <input
+            placeholder={t('facilities.category')}
+            value={form.category}
+            onChange={(event) => setForm({ ...form, category: event.target.value })}
+          />
+          <input
+            placeholder={t('facilities.location')}
+            value={form.location}
+            onChange={(event) => setForm({ ...form, location: event.target.value })}
+          />
           <textarea
-            placeholder="Description"
+            placeholder={t('common.description')}
             value={form.description}
             onChange={(event) => setForm({ ...form, description: event.target.value })}
           />
           <select value={form.manualStatus} onChange={(event) => setForm({ ...form, manualStatus: event.target.value })}>
-            <option value="">Automatic status</option>
-            <option value="open">Open</option>
-            <option value="closed">Closed</option>
-            <option value="restricted">Restricted</option>
+            <option value="">{t('facilities.automatic')}</option>
+            <option value="open">{t('facilities.open')}</option>
+            <option value="closed">{t('facilities.closed')}</option>
+            <option value="restricted">{t('facilities.restricted')}</option>
           </select>
-          <button className="admin-primary">Save</button>
+          <button className="admin-primary">{t('common.save')}</button>
         </form>
       )}
       <div className="admin-list">
@@ -65,7 +73,7 @@ export default function FacilitiesPage() {
             <div className="admin-record-heading">
               <h2>{facility.name}</h2>
               <span className={'status-badge ' + (facility.currentStatus?.status ?? 'closed')}>
-                {facility.currentStatus?.status ?? 'closed'}
+                {statusLabel(facility.currentStatus?.status ?? 'closed')}
               </span>
             </div>
             <p>
@@ -74,7 +82,7 @@ export default function FacilitiesPage() {
             <p>{facility.description}</p>
             {manager && (
               <div className="admin-actions">
-                <button onClick={() => setOperationsId(facility.id)}>Hours and exceptions</button>
+                <button onClick={() => setOperationsId(facility.id)}>{t('facilities.hoursExceptions')}</button>
                 <button
                   onClick={() => {
                     setEditingId(facility.id);
@@ -87,10 +95,13 @@ export default function FacilitiesPage() {
                     });
                   }}
                 >
-                  Edit
+                  {t('common.edit')}
                 </button>
-                <button className="danger" onClick={() => void run(() => remove('facilities/' + facility.id, data.load))}>
-                  Delete
+                <button
+                  className="danger"
+                  onClick={() => void run(() => remove('facilities/' + facility.id, data.load, t('common.confirmDelete')))}
+                >
+                  {t('common.delete')}
                 </button>
               </div>
             )}

@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { startAuthentication, startRegistration } from '@simplewebauthn/browser';
 import { adminApi, redirectToPasskeyOrigin } from './api';
+import { useAdminI18n } from './i18n';
 import type { CurrentUser, Passkey, School, Teacher } from './types';
 
 type AdminContextValue = {
@@ -24,10 +25,10 @@ type AdminContextValue = {
   registerPasskey: (name: string) => Promise<void>;
   logout: () => Promise<void>;
 };
-
 const AdminContext = createContext<AdminContextValue | null>(null);
 
 export function AdminProvider({ children }: { children: ReactNode }) {
+  const { t } = useAdminI18n();
   const [me, setMe] = useState<CurrentUser | null>(null);
   const [schools, setSchools] = useState<School[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
@@ -58,20 +59,23 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (redirectToPasskeyOrigin()) return;
     refresh().catch((cause) => {
-      if (!String(cause.message).includes('ログイン')) setError(cause.message);
+      if (!String(cause.message).includes('login') && !String(cause.message).includes('ログイン')) setError(cause.message);
       setLoading(false);
     });
   }, [refresh]);
 
-  const run = useCallback(async (action: () => Promise<void>) => {
-    setError('');
-    setNotice('');
-    try {
-      await action();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : '操作に失敗しました。');
-    }
-  }, []);
+  const run = useCallback(
+    async (action: () => Promise<void>) => {
+      setError('');
+      setNotice('');
+      try {
+        await action();
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : t('common.operationFailed'));
+      }
+    },
+    [t],
+  );
 
   const loginWithPasskey = async () => {
     if (redirectToPasskeyOrigin()) return;
@@ -93,21 +97,18 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       throw cause;
     }
   };
-
   const loginWithPassword = async (username: string, password: string) => {
     await adminApi('auth/password', { method: 'POST', body: JSON.stringify({ username, password }) });
     await refresh();
   };
-
   const registerPasskey = async (name: string) => {
     if (redirectToPasskeyOrigin()) return;
     const options = await adminApi('auth/registration/options', { method: 'POST', body: JSON.stringify({ name }) });
     const response = await startRegistration({ optionsJSON: options });
     await adminApi('auth/registration/verify', { method: 'POST', body: JSON.stringify({ response }) });
-    setNotice('Passkeyを登録しました。');
+    setNotice(t('auth.registerPasskey'));
     await refresh();
   };
-
   const logout = async () => {
     await adminApi('auth/logout', { method: 'POST', body: '{}' });
     setMe(null);
@@ -115,7 +116,6 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     setTeachers([]);
     setPasskeys([]);
   };
-
   const value = useMemo<AdminContextValue>(
     () => ({
       me,
@@ -140,10 +140,8 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     }),
     [me, schools, teachers, passkeys, loading, error, notice, passwordLoginVisible, refresh, run],
   );
-
   return <AdminContext.Provider value={value}>{children}</AdminContext.Provider>;
 }
-
 export function useAdmin() {
   const value = useContext(AdminContext);
   if (!value) throw new Error('AdminProvider is required.');

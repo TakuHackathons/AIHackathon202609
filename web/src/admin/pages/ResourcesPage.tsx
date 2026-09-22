@@ -2,101 +2,137 @@ import { useState } from 'react';
 import { adminApi } from '../api';
 import { useAdmin } from '../AdminContext';
 import { PageHeading, remove, useSchoolData } from '../educationShared';
-type R = { id: number; kind: string; title: string; category: string; body: string; externalUrl: string };
+import { useAdminI18n, type AdminTranslationKey } from '../i18n';
+type Resource = { id: number; kind: string; title: string; category: string; body: string; externalUrl: string };
 const blank = { kind: 'rule', title: '', category: '', body: '', externalUrl: '' };
 export default function ResourcesPage() {
-  const { manager, run, setNotice } = useAdmin(),
-    d = useSchoolData<R>('resources', 'resources');
-  const [f, setF] = useState(blank),
-    [edit, setEdit] = useState<number | null>(null),
-    [q, setQ] = useState('');
+  const { manager, run, setNotice } = useAdmin();
+  const { t } = useAdminI18n();
+  const data = useSchoolData<Resource>('resources', 'resources');
+  const [form, setForm] = useState(blank);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [query, setQuery] = useState('');
   const save = () =>
     run(async () => {
-      await adminApi(edit ? 'resources/' + edit : 'resources', {
-        method: edit ? 'PATCH' : 'POST',
-        body: JSON.stringify({ ...f, schoolId: d.schoolId }),
+      await adminApi(editingId ? 'resources/' + editingId : 'resources', {
+        method: editingId ? 'PATCH' : 'POST',
+        body: JSON.stringify({ ...form, schoolId: data.schoolId }),
       });
-      setF(blank);
-      setEdit(null);
-      setNotice('Resource saved.');
-      await d.load();
+      setForm(blank);
+      setEditingId(null);
+      setNotice(t('resources.saved'));
+      await data.load();
     });
   const search = () =>
     run(async () => {
-      const x = await adminApi('resources/search?schoolId=' + d.schoolId + '&q=' + encodeURIComponent(q));
-      d.setRows(x.resources);
+      const result = await adminApi('resources/search?schoolId=' + data.schoolId + '&q=' + encodeURIComponent(query));
+      data.setRows(result.resources);
     });
   const upload = (id: number, file: File) =>
     run(async () => {
       const body = new FormData();
       body.append('file', file);
-      const response = await fetch('/api/admin/resources/' + id + '/files', { method: 'POST', body, credentials: 'same-origin' }),
-        x = await response.json();
-      if (!response.ok) throw Error(x.error);
-      setNotice('PDF uploaded and indexed.');
+      const response = await fetch('/api/admin/resources/' + id + '/files', { method: 'POST', body, credentials: 'same-origin' });
+      const result = await response.json();
+      if (!response.ok) throw Error(result.error);
+      setNotice(t('resources.pdfUploaded'));
     });
+  const kindLabel = (kind: string) => t(`resources.${kind}` as AdminTranslationKey);
   return (
     <section>
-      <PageHeading kicker="RESOURCES" title="Rules, careers and events" description="Search titles, text and extracted PDF content." />
-      {d.picker}
+      <PageHeading kicker={t('kicker.resources')} title={t('resources.title')} description={t('resources.description')} />
+      {data.picker}
       <div className="admin-search">
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search resources" />
-        <button onClick={() => void search()}>Search</button>
-        <button onClick={() => void d.load()}>Clear</button>
+        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('resources.searchPlaceholder')} />
+        <button onClick={() => void search()}>{t('common.search')}</button>
+        <button
+          onClick={() => {
+            setQuery('');
+            void data.load();
+          }}
+        >
+          {t('common.cancel')}
+        </button>
       </div>
       {manager && (
         <form
           className="admin-card admin-form admin-inline-form"
-          onSubmit={(e) => {
-            e.preventDefault();
+          onSubmit={(event) => {
+            event.preventDefault();
             void save();
           }}
         >
-          <select value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value })}>
-            <option value="rule">Rule</option>
-            <option value="career">Career</option>
-            <option value="event">Event</option>
-            <option value="other">Other</option>
+          <select value={form.kind} onChange={(event) => setForm({ ...form, kind: event.target.value })}>
+            <option value="rule">{t('resources.rule')}</option>
+            <option value="career">{t('resources.career')}</option>
+            <option value="event">{t('resources.event')}</option>
+            <option value="other">{t('resources.other')}</option>
           </select>
-          <input required placeholder="Title" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} />
-          <input placeholder="Category" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })} />
-          <textarea placeholder="Body" value={f.body} onChange={(e) => setF({ ...f, body: e.target.value })} />
-          <input placeholder="External URL" value={f.externalUrl} onChange={(e) => setF({ ...f, externalUrl: e.target.value })} />
-          <button className="admin-primary">Save</button>
+          <input
+            required
+            placeholder={t('common.title')}
+            value={form.title}
+            onChange={(event) => setForm({ ...form, title: event.target.value })}
+          />
+          <input
+            placeholder={t('resources.category')}
+            value={form.category}
+            onChange={(event) => setForm({ ...form, category: event.target.value })}
+          />
+          <textarea
+            placeholder={t('resources.body')}
+            value={form.body}
+            onChange={(event) => setForm({ ...form, body: event.target.value })}
+          />
+          <input
+            placeholder={t('common.externalUrl')}
+            value={form.externalUrl}
+            onChange={(event) => setForm({ ...form, externalUrl: event.target.value })}
+          />
+          <button className="admin-primary">{t('common.save')}</button>
         </form>
       )}
       <div className="admin-list">
-        {d.rows.map((x) => (
-          <article className="admin-card" key={x.id}>
+        {data.rows.map((resource) => (
+          <article className="admin-card" key={resource.id}>
             <small>
-              {x.kind} / {x.category}
+              {kindLabel(resource.kind)} / {resource.category}
             </small>
-            <h2>{x.title}</h2>
-            <p>{x.body}</p>
+            <h2>{resource.title}</h2>
+            <p>{resource.body}</p>
             {manager && (
               <>
                 <label className="file-button">
-                  Upload PDF
+                  {t('resources.uploadPdf')}
                   <input
                     type="file"
                     accept="application/pdf"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) void upload(x.id, file);
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) void upload(resource.id, file);
                     }}
                   />
                 </label>
                 <div className="admin-actions">
                   <button
                     onClick={() => {
-                      setEdit(x.id);
-                      setF({ kind: x.kind, title: x.title, category: x.category, body: x.body, externalUrl: x.externalUrl });
+                      setEditingId(resource.id);
+                      setForm({
+                        kind: resource.kind,
+                        title: resource.title,
+                        category: resource.category,
+                        body: resource.body,
+                        externalUrl: resource.externalUrl,
+                      });
                     }}
                   >
-                    Edit
+                    {t('common.edit')}
                   </button>
-                  <button className="danger" onClick={() => void run(() => remove('resources/' + x.id, d.load))}>
-                    Delete
+                  <button
+                    className="danger"
+                    onClick={() => void run(() => remove('resources/' + resource.id, data.load, t('common.confirmDelete')))}
+                  >
+                    {t('common.delete')}
                   </button>
                 </div>
               </>

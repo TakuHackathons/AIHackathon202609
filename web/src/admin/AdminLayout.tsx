@@ -1,50 +1,49 @@
 import { Link, Outlet } from '@tanstack/react-router';
 import { AdminAuth } from './AdminAuth';
 import { AdminProvider, useAdmin } from './AdminContext';
-import { roleLabel } from './types';
+import { AdminLocaleProvider, AdminLocaleSwitch, useAdminI18n, type AdminTranslationKey } from './i18n';
 import './Admin.css';
 
 const navigation = [
-  { to: '/admin', label: '概要', exact: true },
-  { to: '/admin/schools', label: '学校管理' },
-  { to: '/admin/teachers', label: '教員管理' },
-  { to: '/admin/facilities', label: '施設' },
-  { to: '/admin/students', label: '学生' },
-  { to: '/admin/courses', label: '授業・時間割' },
-  { to: '/admin/attendance', label: '出欠・CSV取込' },
-  { to: '/admin/resources', label: '資料' },
-  { to: '/admin/settings', label: 'アカウント設定' },
+  { to: '/admin', label: 'nav.dashboard', exact: true },
+  { to: '/admin/schools', label: 'nav.schools' },
+  { to: '/admin/teachers', label: 'nav.teachers' },
+  { to: '/admin/facilities', label: 'nav.facilities' },
+  { to: '/admin/students', label: 'nav.students' },
+  { to: '/admin/courses', label: 'nav.courses' },
+  { to: '/admin/attendance', label: 'nav.attendance' },
+  { to: '/admin/resources', label: 'nav.resources' },
+  { to: '/admin/settings', label: 'nav.settings' },
 ] as const;
 
 function AdminFrame() {
   const { me, loading, error, notice, logout, run } = useAdmin();
-
-  if (loading) {
+  const { t } = useAdminI18n();
+  if (loading)
     return (
       <main className="admin-shell">
-        <p className="admin-loading">管理画面を準備しています…</p>
+        <p className="admin-loading">{t('layout.loading')}</p>
       </main>
     );
-  }
   if (!me || me.enrollmentRequired) return <AdminAuth />;
-
   return (
     <main className="admin-shell">
       <header className="admin-header">
         <Link to="/">
           <span>Empathy AI Companion</span>
-          <small>教員管理</small>
+          <small>{t('layout.teacherAdmin')}</small>
         </Link>
         <div>
           <span>
-            {me.user.name} · {roleLabel[me.user.role]}
+            {me.user.name} · {t(`role.${me.user.role}`)}
           </span>
-          <button onClick={() => void run(logout)}>ログアウト</button>
+          <AdminLocaleSwitch />
+          <button onClick={() => void run(logout)}>{t('layout.logout')}</button>
         </div>
       </header>
       <div className="admin-layout">
-        <nav className="admin-sidebar" aria-label="管理メニュー">
-          <strong>管理メニュー</strong>
+        <nav className="admin-sidebar" aria-label={t('nav.title')}>
+          <strong>{t('nav.title')}</strong>
           {navigation.map((item) => (
             <Link
               key={item.to}
@@ -52,7 +51,7 @@ function AdminFrame() {
               activeOptions={'exact' in item ? { exact: item.exact } : undefined}
               activeProps={{ className: 'active' }}
             >
-              {item.label}
+              {t(item.label as AdminTranslationKey)}
             </Link>
           ))}
         </nav>
@@ -64,11 +63,12 @@ function AdminFrame() {
     </main>
   );
 }
-
 export default function AdminLayout() {
   return (
-    <AdminProvider>
-      <AdminFrame />
-    </AdminProvider>
+    <AdminLocaleProvider>
+      <AdminProvider>
+        <AdminFrame />
+      </AdminProvider>
+    </AdminLocaleProvider>
   );
 }

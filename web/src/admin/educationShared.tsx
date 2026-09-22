@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { adminApi } from './api';
 import { useAdmin } from './AdminContext';
+import { useAdminI18n } from './i18n';
 export function useSchoolData<T>(path: string, key: string) {
   const { me, schools, superAdmin } = useAdmin();
+  const { t } = useAdminI18n();
   const [schoolId, setSchoolId] = useState(me?.user.schoolId ?? schools[0]?.id ?? 0);
   const [rows, setRows] = useState<T[]>([]);
   const load = useCallback(async () => {
@@ -15,12 +17,12 @@ export function useSchoolData<T>(path: string, key: string) {
   }, [load]);
   const picker = superAdmin ? (
     <label className="admin-school-picker">
-      School
-      <select value={schoolId} onChange={(e) => setSchoolId(Number(e.target.value))}>
-        <option value={0}>Select school</option>
-        {schools.map((x) => (
-          <option key={x.id} value={x.id}>
-            {x.name}
+      {t('common.school')}
+      <select value={schoolId} onChange={(event) => setSchoolId(Number(event.target.value))}>
+        <option value={0}>{t('common.selectSchool')}</option>
+        {schools.map((school) => (
+          <option key={school.id} value={school.id}>
+            {school.name}
           </option>
         ))}
       </select>
@@ -50,8 +52,8 @@ export function PageHeading({
     </div>
   );
 }
-export async function remove(path: string, reload: () => Promise<void>) {
-  if (!window.confirm('Delete this record?')) return;
+export async function remove(path: string, reload: () => Promise<void>, confirmMessage: string) {
+  if (!window.confirm(confirmMessage)) return;
   await adminApi(path, { method: 'DELETE' });
   await reload();
 }

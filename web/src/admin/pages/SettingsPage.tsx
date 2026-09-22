@@ -1,62 +1,66 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { adminApi, formatDate } from '../api';
+import { adminApi } from '../api';
 import { useAdmin } from '../AdminContext';
-
+import { useAdminI18n } from '../i18n';
 export default function SettingsPage() {
   const { me, passkeys, refresh, run, setNotice } = useAdmin();
+  const { t, locale } = useAdminI18n();
   const [profile, setProfile] = useState({ name: '', email: '' });
-
   useEffect(() => {
     if (me) setProfile({ name: me.user.name, email: me.user.email });
   }, [me]);
-
+  const formatDate = (value: number | null) =>
+    value
+      ? new Intl.DateTimeFormat(locale === 'ja' ? 'ja-JP' : 'en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(value)
+      : t('settings.neverUsed');
   const save = (event: FormEvent) => {
     event.preventDefault();
     void run(async () => {
       await adminApi('teachers/' + me!.user.id, { method: 'PATCH', body: JSON.stringify(profile) });
       await refresh();
-      setNotice('プロフィールを更新しました。');
+      setNotice(t('settings.profileUpdated'));
     });
   };
   const issuePassword = () =>
     run(async () => {
       const result = await adminApi('auth/password/issue', { method: 'POST', body: '{}' });
-      setNotice(`ユーザー名: ${result.username} / パスワード: ${result.password}`);
+      setNotice(t('settings.usernamePassword', { username: result.username, password: result.password }));
     });
-
   return (
     <section id="settings">
       <div className="admin-page-heading">
         <div>
-          <p className="admin-kicker">ACCOUNT</p>
-          <h1>アカウント設定</h1>
-          <p>プロフィールとログイン方法を管理します。</p>
+          <p className="admin-kicker">{t('kicker.account')}</p>
+          <h1>{t('settings.title')}</h1>
+          <p>{t('settings.description')}</p>
         </div>
       </div>
       <form className="admin-card admin-form" onSubmit={save}>
-        <h2>プロフィール</h2>
+        <h2>{t('settings.profile')}</h2>
         <div className="admin-grid">
           <input
             required
-            placeholder="氏名"
+            placeholder={t('teachers.name')}
             value={profile.name}
             onChange={(event) => setProfile({ ...profile, name: event.target.value })}
           />
           <input
             type="email"
-            placeholder="メールアドレス"
+            placeholder={t('teachers.email')}
             value={profile.email}
             onChange={(event) => setProfile({ ...profile, email: event.target.value })}
           />
         </div>
-        <button className="admin-primary">プロフィールを保存</button>
+        <button className="admin-primary">{t('settings.saveProfile')}</button>
       </form>
       <div className="admin-card">
-        <h2>Passkey</h2>
+        <h2>{t('settings.passkey')}</h2>
         <div className="key-add">
-          <span>ユーザー名: {me?.user.username}</span>
+          <span>
+            {t('auth.username')}: {me?.user.username}
+          </span>
           <button className="admin-primary" onClick={() => void issuePassword()}>
-            パスワードを発行
+            {t('settings.issuePassword')}
           </button>
         </div>
         {passkeys.map((passkey) => (
@@ -64,7 +68,7 @@ export default function SettingsPage() {
             <span>
               <strong>{passkey.name}</strong>
               <small>
-                登録: {formatDate(passkey.createdAt)} / 最終使用: {formatDate(passkey.lastUsedAt)}
+                {t('settings.registeredAt')}: {formatDate(passkey.createdAt)} / {t('settings.lastUsedAt')}: {formatDate(passkey.lastUsedAt)}
               </small>
             </span>
             <button
@@ -75,7 +79,7 @@ export default function SettingsPage() {
                 })
               }
             >
-              削除
+              {t('common.delete')}
             </button>
           </div>
         ))}

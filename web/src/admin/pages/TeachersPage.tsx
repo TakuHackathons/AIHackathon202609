@@ -1,22 +1,21 @@
 import { Link } from '@tanstack/react-router';
 import { adminApi } from '../api';
 import { useAdmin } from '../AdminContext';
-import { roleLabel } from '../types';
-
+import { useAdminI18n } from '../i18n';
 export default function TeachersPage() {
   const { teachers, manager, refresh, run, setNotice } = useAdmin();
-
+  const { t } = useAdminI18n();
   return (
     <section>
       <div className="admin-page-heading">
         <div>
-          <p className="admin-kicker">TEACHERS</p>
-          <h1>教員管理</h1>
-          <p>教員の所属情報と権限を管理します。</p>
+          <p className="admin-kicker">{t('kicker.teachers')}</p>
+          <h1>{t('teachers.title')}</h1>
+          <p>{t('teachers.description')}</p>
         </div>
         {manager && (
           <Link className="admin-primary" to="/admin/teachers/new">
-            教員を招待
+            {t('teachers.invite')}
           </Link>
         )}
       </div>
@@ -25,36 +24,36 @@ export default function TeachersPage() {
           <article className="admin-card teacher" key={teacher.id}>
             <div>
               <h2>
-                {teacher.name} <small>{roleLabel[teacher.role]}</small>
+                {teacher.name} <small>{t(`role.${teacher.role}`)}</small>
               </h2>
               <p>@{teacher.username}</p>
             </div>
             {manager && teacher.role !== 'super_admin' && (
               <div className="admin-actions">
                 <Link to="/admin/teachers/edit" search={{ teacherId: teacher.id }}>
-                  編集
+                  {t('common.edit')}
                 </Link>
                 <button
                   onClick={() =>
                     void run(async () => {
                       const result = await adminApi('teachers/' + teacher.id + '/reset-passkeys', { method: 'POST', body: '{}' });
-                      setNotice(teacher.name + 'さんのPasskeyをリセットしました。パスワード: ' + result.temporaryPassword);
+                      setNotice(t('teachers.resetDone', { name: teacher.name, password: result.temporaryPassword }));
                     })
                   }
                 >
-                  Passkeyをリセット
+                  {t('teachers.resetPasskey')}
                 </button>
                 <button
                   className="danger"
                   onClick={() =>
                     void run(async () => {
-                      if (!confirm(teacher.name + 'さんを削除しますか？')) return;
+                      if (!confirm(t('teachers.confirmDelete', { name: teacher.name }))) return;
                       await adminApi('teachers/' + teacher.id, { method: 'DELETE' });
                       await refresh();
                     })
                   }
                 >
-                  削除
+                  {t('common.delete')}
                 </button>
               </div>
             )}

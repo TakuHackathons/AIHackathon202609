@@ -1,5 +1,5 @@
 import type { School, TeacherFormValue } from './types';
-
+import { useAdminI18n } from './i18n';
 type Props = {
   value: TeacherFormValue;
   schools: School[];
@@ -7,28 +7,33 @@ type Props = {
   showSchool: boolean;
   onChange: (value: TeacherFormValue) => void;
 };
-
 export function TeacherForm({ value, schools, creating, showSchool, onChange }: Props) {
+  const { t } = useAdminI18n();
   return (
     <div className="admin-grid">
-      <input required placeholder="氏名" value={value.name} onChange={(event) => onChange({ ...value, name: event.target.value })} />
+      <input
+        required
+        placeholder={t('teachers.name')}
+        value={value.name}
+        onChange={(event) => onChange({ ...value, name: event.target.value })}
+      />
       {creating && (
         <input
           required
-          placeholder="ユーザー名"
+          placeholder={t('auth.username')}
           value={value.username}
           onChange={(event) => onChange({ ...value, username: event.target.value })}
         />
       )}
       <input
         type="email"
-        placeholder="メールアドレス"
+        placeholder={t('teachers.email')}
         value={value.email}
         onChange={(event) => onChange({ ...value, email: event.target.value })}
       />
       {showSchool && (
         <select required value={value.schoolId || ''} onChange={(event) => onChange({ ...value, schoolId: Number(event.target.value) })}>
-          <option value="">所属する学校</option>
+          <option value="">{t('teachers.school')}</option>
           {schools.map((school) => (
             <option key={school.id} value={school.id}>
               {school.name}
@@ -37,8 +42,8 @@ export function TeacherForm({ value, schools, creating, showSchool, onChange }: 
         </select>
       )}
       <select value={value.role} onChange={(event) => onChange({ ...value, role: event.target.value as TeacherFormValue['role'] })}>
-        <option value="general">一般教員</option>
-        <option value="admin">管理者</option>
+        <option value="general">{t('teachers.general')}</option>
+        <option value="admin">{t('teachers.admin')}</option>
       </select>
     </div>
   );

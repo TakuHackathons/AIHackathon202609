@@ -1,21 +1,21 @@
 import { Link } from '@tanstack/react-router';
 import { useAdmin } from '../AdminContext';
-
+import { useAdminI18n } from '../i18n';
 export default function SchoolsPage() {
   const { me, schools, manager, superAdmin } = useAdmin();
+  const { t } = useAdminI18n();
   const visibleSchools = schools.filter((school) => superAdmin || school.id === me?.user.schoolId);
-
   return (
     <section>
       <div className="admin-page-heading">
         <div>
-          <p className="admin-kicker">SCHOOLS</p>
-          <h1>学校管理</h1>
-          <p>登録済みの学校と、一般利用画面で入力する学校コードを確認できます。</p>
+          <p className="admin-kicker">{t('kicker.schools')}</p>
+          <h1>{t('schools.title')}</h1>
+          <p>{t('schools.description')}</p>
         </div>
         {superAdmin && (
           <Link className="admin-primary" to="/admin/schools/new">
-            学校を登録
+            {t('schools.add')}
           </Link>
         )}
       </div>
@@ -24,18 +24,18 @@ export default function SchoolsPage() {
           <article className="admin-card" key={school.id}>
             <h2>{school.name}</h2>
             <p className="school-code">
-              学校コード: <code>{school.code}</code>
+              {t('schools.code')}: <code>{school.code}</code>
               <button type="button" onClick={() => void navigator.clipboard.writeText(school.code)}>
-                コピー
+                {t('common.copy')}
               </button>
             </p>
             <p>
-              {school.address || '住所未登録'} ・ {school.phone || '電話番号未登録'}
+              {school.address || t('schools.addressMissing')} · {school.phone || t('schools.phoneMissing')}
             </p>
-            <small>この学校コードを一般利用画面で入力します。</small>
+            <small>{t('schools.codeHelp')}</small>
             {manager && (
               <Link className="admin-row-action" to="/admin/schools/edit" search={{ schoolId: school.id }}>
-                学校情報を編集
+                {t('schools.edit')}
               </Link>
             )}
           </article>

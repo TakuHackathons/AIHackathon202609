@@ -2,87 +2,96 @@ import { useState } from 'react';
 import { adminApi } from '../api';
 import { useAdmin } from '../AdminContext';
 import { PageHeading, remove, useSchoolData } from '../educationShared';
-type Row = { id: number; studentNumber: string; personality: string; considerations: string; tags: string[] };
+import { useAdminI18n } from '../i18n';
+type Student = { id: number; studentNumber: string; personality: string; considerations: string; tags: string[] };
 const blank = { studentNumber: '', personality: '', considerations: '', tags: '' };
 export default function StudentsPage() {
-  const { manager, run, setNotice } = useAdmin(),
-    d = useSchoolData<Row>('students', 'students');
-  const [f, setF] = useState(blank),
-    [edit, setEdit] = useState<number | null>(null);
+  const { manager, run, setNotice } = useAdmin();
+  const { t } = useAdminI18n();
+  const data = useSchoolData<Student>('students', 'students');
+  const [form, setForm] = useState(blank);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const save = () =>
     run(async () => {
-      await adminApi(edit ? 'students/' + edit : 'students', {
-        method: edit ? 'PATCH' : 'POST',
+      await adminApi(editingId ? 'students/' + editingId : 'students', {
+        method: editingId ? 'PATCH' : 'POST',
         body: JSON.stringify({
-          ...f,
-          schoolId: d.schoolId,
-          tags: f.tags
+          ...form,
+          schoolId: data.schoolId,
+          tags: form.tags
             .split(',')
-            .map((x) => x.trim())
+            .map((tag) => tag.trim())
             .filter(Boolean),
         }),
       });
-      setF(blank);
-      setEdit(null);
-      setNotice('Student saved.');
-      await d.load();
+      setForm(blank);
+      setEditingId(null);
+      setNotice(t('students.saved'));
+      await data.load();
     });
   return (
     <section>
-      <PageHeading kicker="STUDENTS" title="Students" description="Manage student number, personality, considerations and tags." />
-      {d.picker}
+      <PageHeading kicker={t('kicker.students')} title={t('students.title')} description={t('students.description')} />
+      {data.picker}
       {manager && (
         <form
           className="admin-card admin-form admin-inline-form"
-          onSubmit={(e) => {
-            e.preventDefault();
+          onSubmit={(event) => {
+            event.preventDefault();
             void save();
           }}
         >
           <input
             required
-            placeholder="Student number"
-            value={f.studentNumber}
-            onChange={(e) => setF({ ...f, studentNumber: e.target.value })}
+            placeholder={t('students.number')}
+            value={form.studentNumber}
+            onChange={(event) => setForm({ ...form, studentNumber: event.target.value })}
           />
-          <textarea placeholder="Personality" value={f.personality} onChange={(e) => setF({ ...f, personality: e.target.value })} />
           <textarea
-            placeholder="Considerations"
-            value={f.considerations}
-            onChange={(e) => setF({ ...f, considerations: e.target.value })}
+            placeholder={t('students.personality')}
+            value={form.personality}
+            onChange={(event) => setForm({ ...form, personality: event.target.value })}
           />
-          <input placeholder="Tags separated by commas" value={f.tags} onChange={(e) => setF({ ...f, tags: e.target.value })} />
-          <button className="admin-primary">Save</button>
+          <textarea
+            placeholder={t('students.considerations')}
+            value={form.considerations}
+            onChange={(event) => setForm({ ...form, considerations: event.target.value })}
+          />
+          <input placeholder={t('students.tags')} value={form.tags} onChange={(event) => setForm({ ...form, tags: event.target.value })} />
+          <button className="admin-primary">{t('common.save')}</button>
         </form>
       )}
       <div className="admin-list">
-        {d.rows.map((x) => (
-          <article className="admin-card" key={x.id}>
-            <h2>{x.studentNumber}</h2>
-            <p>{x.personality}</p>
-            <p>{x.considerations}</p>
+        {data.rows.map((student) => (
+          <article className="admin-card" key={student.id}>
+            <h2>{student.studentNumber}</h2>
+            <p>{student.personality}</p>
+            <p>{student.considerations}</p>
             <div className="tag-list">
-              {x.tags?.map((t) => (
-                <span key={t}>{t}</span>
+              {student.tags?.map((tag) => (
+                <span key={tag}>{tag}</span>
               ))}
             </div>
             {manager && (
               <div className="admin-actions">
                 <button
                   onClick={() => {
-                    setEdit(x.id);
-                    setF({
-                      studentNumber: x.studentNumber,
-                      personality: x.personality,
-                      considerations: x.considerations,
-                      tags: (x.tags ?? []).join(', '),
+                    setEditingId(student.id);
+                    setForm({
+                      studentNumber: student.studentNumber,
+                      personality: student.personality,
+                      considerations: student.considerations,
+                      tags: (student.tags ?? []).join(', '),
                     });
                   }}
                 >
-                  Edit
+                  {t('common.edit')}
                 </button>
-                <button className="danger" onClick={() => void run(() => remove('students/' + x.id, d.load))}>
-                  Delete
+                <button
+                  className="danger"
+                  onClick={() => void run(() => remove('students/' + student.id, data.load, t('common.confirmDelete')))}
+                >
+                  {t('common.delete')}
                 </button>
               </div>
             )}

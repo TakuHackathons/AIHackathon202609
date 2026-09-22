@@ -2,24 +2,23 @@ import { useEffect, useState } from 'react';
 import { adminApi } from '../api';
 import { useAdmin } from '../AdminContext';
 import { PageHeading, remove, useSchoolData } from '../educationShared';
+import { useAdminI18n } from '../i18n';
 import AcademicSetupPanel from './AcademicSetupPanel';
 import CoursePlanningPanel from './CoursePlanningPanel';
 import CourseRelatedDataPanel from './CourseRelatedDataPanel';
-
 type Course = { id: number; code: string; name: string; description: string; academicTermId: number; teacherId?: number };
-type AcademicTerm = { id: number; name: string; startsOn: string; endsOn: string };
+type Term = { id: number; name: string; startsOn: string; endsOn: string };
 type Period = { id: number; periodNumber: number; name: string; startsAt: string; endsAt: string };
 const blank = { code: '', name: '', description: '', academicTermId: 0, teacherId: 0 };
-
 export default function CoursesPage() {
   const { teachers, manager, run, setNotice } = useAdmin();
+  const { t } = useAdminI18n();
   const data = useSchoolData<Course>('courses', 'courses');
   const [selectedCourse, setSelectedCourse] = useState(0);
-  const [terms, setTerms] = useState<AcademicTerm[]>([]);
+  const [terms, setTerms] = useState<Term[]>([]);
   const [periods, setPeriods] = useState<Period[]>([]);
   const [form, setForm] = useState(blank);
   const [editingId, setEditingId] = useState<number | null>(null);
-
   const loadSettings = async () => {
     if (!data.schoolId) {
       setTerms([]);
@@ -33,11 +32,9 @@ export default function CoursesPage() {
     setTerms(termData.terms);
     setPeriods(periodData.periods);
   };
-
   useEffect(() => {
     void loadSettings();
   }, [data.schoolId]);
-
   const save = () =>
     run(async () => {
       await adminApi(editingId ? 'courses/' + editingId : 'courses', {
@@ -46,13 +43,12 @@ export default function CoursesPage() {
       });
       setForm(blank);
       setEditingId(null);
-      setNotice('Course saved.');
+      setNotice(t('courses.saved'));
       await data.load();
     });
-
   return (
     <section>
-      <PageHeading kicker="COURSES" title="Courses and schedules" description="Manage courses by academic term and assigned teacher." />
+      <PageHeading kicker={t('kicker.courses')} title={t('courses.title')} description={t('courses.description')} />
       {data.picker}
       {manager && data.schoolId > 0 && (
         <AcademicSetupPanel schoolId={data.schoolId} terms={terms} periods={periods} reload={loadSettings} />
@@ -64,32 +60,42 @@ export default function CoursesPage() {
           void save();
         }}
       >
-        <input required placeholder="Course code" value={form.code} onChange={(event) => setForm({ ...form, code: event.target.value })} />
-        <input required placeholder="Course name" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
+        <input
+          required
+          placeholder={t('courses.code')}
+          value={form.code}
+          onChange={(event) => setForm({ ...form, code: event.target.value })}
+        />
+        <input
+          required
+          placeholder={t('courses.name')}
+          value={form.name}
+          onChange={(event) => setForm({ ...form, name: event.target.value })}
+        />
         <select required value={form.academicTermId} onChange={(event) => setForm({ ...form, academicTermId: Number(event.target.value) })}>
-          <option value={0}>Academic term</option>
-          {terms.map((term) => (
-            <option key={term.id} value={term.id}>
-              {term.name}
+          <option value={0}>{t('courses.term')}</option>
+          {terms.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.name}
             </option>
           ))}
         </select>
         <select required value={form.teacherId} onChange={(event) => setForm({ ...form, teacherId: Number(event.target.value) })}>
-          <option value={0}>Teacher</option>
+          <option value={0}>{t('courses.teacher')}</option>
           {teachers
-            .filter((teacher) => teacher.schoolId === data.schoolId)
-            .map((teacher) => (
-              <option key={teacher.id} value={teacher.id}>
-                {teacher.name}
+            .filter((item) => item.schoolId === data.schoolId)
+            .map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
               </option>
             ))}
         </select>
         <textarea
-          placeholder="Description"
+          placeholder={t('common.description')}
           value={form.description}
           onChange={(event) => setForm({ ...form, description: event.target.value })}
         />
-        <button className="admin-primary">Save</button>
+        <button className="admin-primary">{t('common.save')}</button>
       </form>
       <div className="admin-list">
         {data.rows.map((course) => (
@@ -99,7 +105,7 @@ export default function CoursesPage() {
             </h2>
             <p>{course.description}</p>
             <div className="admin-actions">
-              <button onClick={() => setSelectedCourse(course.id)}>Schedule</button>
+              <button onClick={() => setSelectedCourse(course.id)}>{t('courses.schedule')}</button>
               <button
                 onClick={() => {
                   setEditingId(course.id);
@@ -112,11 +118,14 @@ export default function CoursesPage() {
                   });
                 }}
               >
-                Edit
+                {t('common.edit')}
               </button>
               {manager && (
-                <button className="danger" onClick={() => void run(() => remove('courses/' + course.id, data.load))}>
-                  Delete
+                <button
+                  className="danger"
+                  onClick={() => void run(() => remove('courses/' + course.id, data.load, t('common.confirmDelete')))}
+                >
+                  {t('common.delete')}
                 </button>
               )}
             </div>
