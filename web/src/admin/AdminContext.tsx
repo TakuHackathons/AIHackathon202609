@@ -106,7 +106,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     const options = await adminApi('auth/registration/options', { method: 'POST', body: JSON.stringify({ name }) });
     const response = await startRegistration({ optionsJSON: options });
     await adminApi('auth/registration/verify', { method: 'POST', body: JSON.stringify({ response }) });
-    setNotice(t('auth.registerPasskey'));
+    setNotice(t('settings.passkeyAdded'));
     await refresh();
   };
   const logout = async () => {

@@ -1,12 +1,12 @@
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { HTTPException } from 'hono/http-exception';
-import { asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import { database } from '../db';
 import { challenges, passkeys, schools, sessions, users, publicUser, type User } from '../db/schema';
 import { authRouter } from './auth';
 import { catalogRouter } from './catalog';
-import { canAccessSchool, canGrantRole } from './authorization';
+import { canAccessSchool, canGrantRole, canSetPasskeyPassword } from './authorization';
 import { educationRouter } from './education';
 import { importRouter } from './imports';
 import {
@@ -202,19 +202,38 @@ adminRouter.delete('/teachers/:id', async (c) => {
   await database(c.env).delete(users).where(eq(users.id, current.id));
   return c.json({ ok: true });
 });
+adminRouter.post('/teachers/:id/passkey-password', async (c) => {
+  requireManager(c);
+  const current = await teacher(c),
+    actor = c.get('user');
+  if (!canSetPasskeyPassword(actor, current)) fail(403, 'Passkey registration password cannot be issued.');
+  const password = token(),
+    expiresAt = Date.now() + 86_400_000,
+    db = database(c.env);
+  await db.batch([
+    db
+      .update(users)
+      .set({ passwordHash: await passwordHash(password), passwordExpiresAt: expiresAt, updatedAt: Date.now() })
+      .where(eq(users.id, current.id)),
+    db.delete(sessions).where(and(eq(sessions.userId, current.id), eq(sessions.scope, 'enroll'))),
+    db.delete(challenges).where(eq(challenges.userId, current.id)),
+  ]);
+  return c.json({ username: current.username, password, expiresAt });
+});
 adminRouter.post('/teachers/:id/reset-passkeys', async (c) => {
   requireManager(c);
   const current = await teacher(c),
     actor = c.get('user');
   if (current.id === actor.id || !canManage(actor, current)) fail(403, 'Passkeys cannot be reset.');
   const temporaryPassword = token(),
+    expiresAt = Date.now() + 86_400_000,
     db = database(c.env);
   await db.batch([
     db
       .update(users)
       .set({
         passwordHash: await passwordHash(temporaryPassword),
-        passwordExpiresAt: Date.now() + 86_400_000,
+        passwordExpiresAt: expiresAt,
         authVersion: sql`${users.authVersion} + 1`,
         updatedAt: Date.now(),
       })
@@ -223,5 +242,5 @@ adminRouter.post('/teachers/:id/reset-passkeys', async (c) => {
     db.delete(sessions).where(eq(sessions.userId, current.id)),
     db.delete(challenges).where(eq(challenges.userId, current.id)),
   ]);
-  return c.json({ username: current.username, temporaryPassword });
+  return c.json({ username: current.username, temporaryPassword, expiresAt });
 });

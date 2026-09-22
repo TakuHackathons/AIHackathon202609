@@ -542,3 +542,110 @@
   background: #ecfdf5;
   color: #166534;
 }
+
+.passkey-add-form > p,
+.other-device-registration > p {
+  max-width: 760px;
+  color: #67808f;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.passkey-add-form > div {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.issued-password {
+  flex: 1 0 100%;
+  margin-top: 14px;
+  padding: 16px;
+  border: 1px solid #b9ddca;
+  border-radius: 10px;
+  background: #f0faf5;
+}
+
+.issued-password-heading,
+.issued-password-value {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.issued-password-heading button,
+.issued-password-value button {
+  padding: 6px 9px;
+  border: 1px solid #acd2be;
+  border-radius: 7px;
+  background: #fff;
+  color: #287050;
+  cursor: pointer;
+}
+
+.issued-password dl {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0 0;
+}
+
+.issued-password dl > div {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.issued-password dt {
+  color: #5d7669;
+  font-size: 12px;
+}
+
+.issued-password dd {
+  min-width: 0;
+  margin: 0;
+}
+
+.issued-password code {
+  overflow-wrap: anywhere;
+  color: #174b35;
+}
+
+.passkey-settings {
+  padding: 24px;
+}
+
+.passkey-add-form,
+.other-device-registration {
+  margin-top: 16px;
+  padding: 18px;
+  border: 1px solid #e0e8ed;
+  border-radius: 10px;
+  background: #f8fbfc;
+}
+
+.passkey-add-form input {
+  flex: 1;
+}
+
+.other-device-registration > span {
+  display: inline-block;
+  margin-top: 8px;
+  color: #3e5d70;
+  font-size: 13px;
+}
+
+.passkey-list {
+  margin-top: 18px;
+}
+
+@media (max-width: 720px) {
+  .passkey-add-form > div {
+    display: grid;
+  }
+
+  .other-device-registration .admin-secondary {
+    display: block;
+    margin: 10px 0 0;
+  }
+}
