@@ -4,10 +4,11 @@ import { BotConfigurationError } from '../config/bot';
 import type { Bindings } from '../bindings';
 import type { ChatMessage } from '../../../packages/core/src/index';
 import { createOrcaAnswer, createOrcaStream } from '../services/orca';
+import { buildSchoolContext } from '../services/school-context';
 
 export const orcaRouter = new Hono<{ Bindings: Bindings }>();
 orcaRouter.post('/chat', async (c) => {
-  let body: { message?: unknown; stream?: unknown; history?: unknown };
+  let body: { message?: unknown; stream?: unknown; history?: unknown; schoolCode?: unknown; studentNumber?: unknown };
   try {
     body = await c.req.json();
   } catch {
@@ -26,6 +27,22 @@ orcaRouter.post('/chat', async (c) => {
     JSON.stringify(history).length > 40000
   )
     return c.json({ error: '会話履歴の形式または長さが正しくありません。' }, 400);
+  let contextualMessage = body.message;
+  if (typeof body.schoolCode === 'string' && body.schoolCode.trim()) {
+    const selected = await buildSchoolContext(
+      c.env,
+      body.schoolCode.trim(),
+      typeof body.studentNumber === 'string' ? body.studentNumber.trim() : '',
+      body.message.trim(),
+    );
+    if (!selected) return c.json({ error: 'School not found.' }, 404);
+    if (selected.studentMissing) return c.json({ error: 'Student number not found.' }, 404);
+    contextualMessage =
+      'Use the following registered school data as the source of truth. Do not expose information about other schools or students. If the answer is absent, say it is not registered.\n' +
+      selected.context +
+      '\nQuestion: ' +
+      body.message;
+  }
   const controller = new AbortController();
   const signal = AbortSignal.any([c.req.raw.signal, controller.signal, AbortSignal.timeout(120000)]);
   try {
@@ -33,14 +50,14 @@ orcaRouter.post('/chat', async (c) => {
       return c.json({
         answer: await createOrcaAnswer(
           c.env,
-          body.message,
+          contextualMessage,
           (history as ChatMessage[]).map(({ role, content }) => ({ role, content })),
           signal,
         ),
       });
     const responseStream = await createOrcaStream(
       c.env,
-      body.message,
+      contextualMessage,
       (history as ChatMessage[]).map(({ role, content }) => ({ role, content })),
       signal,
     );

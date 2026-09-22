@@ -1,0 +1,11 @@
+import { Hono } from 'hono';
+import type { AdminEnv } from './security';
+import { academicSettingsRouter } from './education/settings';
+import { facilityDetailsRouter } from './education/facilities';
+import { courseDetailsRouter } from './education/courses';
+import { resourceSearchRouter } from './education/resources';
+export const educationRouter = new Hono<AdminEnv>();
+educationRouter.route('/', academicSettingsRouter);
+educationRouter.route('/', facilityDetailsRouter);
+educationRouter.route('/', courseDetailsRouter);
+educationRouter.route('/', resourceSearchRouter);

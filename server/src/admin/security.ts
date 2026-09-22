@@ -43,7 +43,8 @@ export function origin(c: AdminContext) {
   const url = new URL(raw);
   if (url.origin !== raw) fail(400, 'Originが正しくありません。');
   return { origin: url.origin, rpID: url.hostname, secure: url.protocol === 'https:' };
-}export async function body(c: AdminContext): Promise<Record<string, unknown>> {
+}
+export async function body(c: AdminContext): Promise<Record<string, unknown>> {
   try {
     const value: unknown = await c.req.json();
     if (!value || typeof value !== 'object' || Array.isArray(value)) fail(400, '入力形式が正しくありません。');

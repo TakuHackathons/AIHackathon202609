@@ -9,7 +9,7 @@ import {
   type RegistrationResponseJSON,
 } from '@simplewebauthn/server';
 import { database } from '../db';
-import { passkeys, sessions, users, publicUser } from '../db/schema';
+import { challenges, passkeys, sessions, users, publicUser } from '../db/schema';
 import {
   type AdminEnv,
   authenticate,
@@ -59,12 +59,18 @@ authRouter.post('/password', async (c) => {
 
 authRouter.post('/password/issue', async (c) => {
   const { user } = await authenticate(c);
-  const password = token();
-  await database(c.env)
-    .update(users)
-    .set({ passwordHash: await passwordHash(password), passwordExpiresAt: Date.now() + 15 * 60_000, updatedAt: Date.now() })
-    .where(eq(users.id, user.id));
-  return c.json({ username: user.username, password });
+  const password = token(),
+    expiresAt = Date.now() + 15 * 60_000,
+    db = database(c.env);
+  await db.batch([
+    db
+      .update(users)
+      .set({ passwordHash: await passwordHash(password), passwordExpiresAt: expiresAt, updatedAt: Date.now() })
+      .where(eq(users.id, user.id)),
+    db.delete(sessions).where(and(eq(sessions.userId, user.id), eq(sessions.scope, 'enroll'))),
+    db.delete(challenges).where(eq(challenges.userId, user.id)),
+  ]);
+  return c.json({ username: user.username, password, expiresAt });
 });
 
 authRouter.post('/authentication/options', async (c) => {
@@ -178,25 +184,30 @@ authRouter.post('/registration/verify', async (c) => {
   if (!verification?.verified || !verification.registrationInfo) fail(400, 'Passkey registration failed.');
   const info = verification!.registrationInfo!;
   const db = database(c.env);
-  await db.batch([
-    db.insert(passkeys).values({
-      credentialId: info.credential.id,
-      userId: user.id,
-      publicKey: base64(info.credential.publicKey),
-      counter: info.credential.counter,
-      transports: info.credential.transports ?? [],
-      name: challenge.name ?? 'Passkey',
-      deviceType: info.credentialDeviceType,
-      backedUp: info.credentialBackedUp,
-      createdAt: Date.now(),
-    }),
-    db
-      .update(users)
-      .set({ passwordHash: null, passwordExpiresAt: null, authVersion: user.authVersion + 1, updatedAt: Date.now() })
-      .where(and(eq(users.id, user.id), eq(users.authVersion, user.authVersion))),
-    db.delete(sessions).where(eq(sessions.userId, user.id)),
-  ]);
-  await makeSession(c, { ...user, authVersion: user.authVersion + 1 }, 'full');
+  const insertPasskey = db.insert(passkeys).values({
+    credentialId: info.credential.id,
+    userId: user.id,
+    publicKey: base64(info.credential.publicKey),
+    counter: info.credential.counter,
+    transports: info.credential.transports ?? [],
+    name: challenge.name ?? 'Passkey',
+    deviceType: info.credentialDeviceType,
+    backedUp: info.credentialBackedUp,
+    createdAt: Date.now(),
+  });
+  if (session.scope === 'enroll') {
+    await db.batch([
+      insertPasskey,
+      db
+        .update(users)
+        .set({ passwordHash: null, passwordExpiresAt: null, updatedAt: Date.now() })
+        .where(and(eq(users.id, user.id), eq(users.authVersion, user.authVersion))),
+      db.delete(sessions).where(and(eq(sessions.userId, user.id), eq(sessions.scope, 'enroll'))),
+    ]);
+    await makeSession(c, user, 'full');
+  } else {
+    await insertPasskey;
+  }
   return c.json({ ok: true });
 });
 

@@ -1,9 +1,11 @@
-import { useContext, useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState, type FormEvent } from 'react';
 import { ViewerContext } from '../features/vrmViewer/viewerContext';
 import { VrmViewer } from '../compoments/vrmViewer';
 import { readChatStream, SentenceBuffer, SpeechQueue, type ChatMessage } from '../../../packages/core/src/index';
 
 type Message = ChatMessage & { id: number; state: 'complete' | 'pending' | 'stopped' | 'error' };
+type SchoolSelection = { schoolCode: string; schoolName: string; studentNumber: string };
+const schoolStorageKey = 'empathy-ai-companion.school';
 const greeting = 'こんにちは、水野です。勉強のこと、進路のこと、学校でのちょっとした悩み。今日はどんなことを一緒に考えましょうか？';
 const initial: Message[] = [{ id: 0, role: 'assistant', content: greeting, state: 'complete' }];
 const topics = ['自分に合う進路を考えたい', '勉強のやる気が出ない', '学校生活のことを相談したい'];
@@ -97,6 +99,12 @@ export default function Studio() {
   const [summaryBusy, setSummaryBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const [ended, setEnded] = useState(false);
+  const [school, setSchool] = useState<SchoolSelection | null>(null);
+  const [schoolReady, setSchoolReady] = useState(false);
+  const [schoolDialogOpen, setSchoolDialogOpen] = useState(false);
+  const [schoolCode, setSchoolCode] = useState('');
+  const [studentNumber, setStudentNumber] = useState('');
+  const [schoolError, setSchoolError] = useState('');
   const audioEnabled = useRef(true);
   const active = useRef<AbortController | null>(null);
   const summarizing = useRef<AbortController | null>(null);
@@ -106,6 +114,20 @@ export default function Studio() {
   const textarea = useRef<HTMLTextAreaElement>(null);
   const mounted = useRef(true);
 
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(schoolStorageKey);
+      if (saved) {
+        const selected = JSON.parse(saved) as SchoolSelection;
+        if (!selected.schoolCode || !selected.schoolName) throw new Error('Invalid school selection.');
+        setSchool(selected);
+      }
+    } catch {
+      localStorage.removeItem(schoolStorageKey);
+    } finally {
+      setSchoolReady(true);
+    }
+  }, []);
   useEffect(() => {
     mounted.current = true;
     const timer = setInterval(() => {
@@ -210,7 +232,11 @@ export default function Studio() {
     let completed = false;
     try {
       await audioReady;
-      const response = await request('orca/chat', { message: text, history, stream: true }, controller.signal);
+      const response = await request(
+        'orca/chat',
+        { message: text, history, stream: true, schoolCode: school?.schoolCode, studentNumber: school?.studentNumber },
+        controller.signal,
+      );
       for await (const event of readChatStream(response, controller.signal)) {
         if (event.type === 'error') throw new Error(event.message);
         if (event.type === 'delta') {
@@ -264,6 +290,8 @@ export default function Studio() {
             'ここまでの相談を、本人が先生へ共有できるように、相談したこと・気持ち・次の一歩の順で150文字程度にまとめてください。会話にない内容は加えないでください。',
           history: historyOf(messages),
           stream: false,
+          schoolCode: school?.schoolCode,
+          studentNumber: school?.studentNumber,
         },
         controller.signal,
       );
@@ -300,6 +328,51 @@ export default function Studio() {
     setEnded(false);
   }
 
+  function resetConversationForSchoolChange() {
+    stop();
+    summarizing.current?.abort();
+    setMessages(initial);
+    setCaption(greeting);
+    setSummary('');
+    setEnded(false);
+  }
+  function openSchoolDialog() {
+    setSchoolCode(school?.schoolCode ?? '');
+    setStudentNumber(school?.studentNumber ?? '');
+    setSchoolError('');
+    setSchoolDialogOpen(true);
+  }
+  async function selectSchool(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSchoolError('');
+    try {
+      const response = await request('school-context/select', { schoolCode, studentNumber });
+      const data = await response.json();
+      const selected = { schoolCode: data.school.code, schoolName: data.school.name, studentNumber: data.studentNumber || '' };
+      if (school?.schoolCode !== selected.schoolCode || school?.studentNumber !== selected.studentNumber)
+        resetConversationForSchoolChange();
+      localStorage.setItem(schoolStorageKey, JSON.stringify(selected));
+      setSchool(selected);
+      setSchoolCode(selected.schoolCode);
+      setStudentNumber(selected.studentNumber);
+      setSchoolDialogOpen(false);
+      setNotice('学校情報を設定しました。これ以降の回答に学校情報を反映します。');
+    } catch (cause) {
+      setSchoolError(cause instanceof Error ? cause.message : '学校情報を確認できませんでした。');
+    }
+  }
+  function clearSchool() {
+    if (school) resetConversationForSchoolChange();
+    localStorage.removeItem(schoolStorageKey);
+    setSchool(null);
+    setSchoolCode('');
+    setStudentNumber('');
+    setSchoolError('');
+    setSchoolDialogOpen(false);
+    setNotice('学校情報を解除しました。一般的な相談として回答します。');
+  }
+  if (!schoolReady) return null;
+
   return (
     <div className="counsel-app">
       <header className="app-header">
@@ -310,6 +383,14 @@ export default function Studio() {
           <h1>よりそいAI相談室</h1>
         </a>
         <div className="header-actions">
+          <div className="school-context-summary">
+            <span className="selected-school">
+              {school ? school.schoolName + (school.studentNumber ? ' / ' + school.studentNumber : '') : '学校情報なし'}
+            </span>
+            <button type="button" className="school-context-button" onClick={openSchoolDialog}>
+              {school ? '学校情報を変更' : '学校・学籍番号を設定'}
+            </button>
+          </div>
           <label className="toggle-label">
             <span>音声</span>
             <button type="button" className="switch" role="switch" aria-checked={audio} aria-label="音声" onClick={toggleAudio}>
@@ -334,6 +415,53 @@ export default function Studio() {
           </button>
         </div>
       </header>
+
+      {schoolDialogOpen && (
+        <div className="school-dialog-backdrop" onMouseDown={() => setSchoolDialogOpen(false)}>
+          <section
+            className="school-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="school-dialog-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="school-dialog-heading">
+              <div>
+                <span>PERSONALIZE YOUR SUPPORT</span>
+                <h2 id="school-dialog-title">学校・学生情報</h2>
+              </div>
+              <button type="button" aria-label="閉じる" onClick={() => setSchoolDialogOpen(false)}>
+                ×
+              </button>
+            </div>
+            <p>
+              学校コードを設定すると、登録された時間割・施設・規則などを回答に反映します。学籍番号を入力すると、個人の履修・課題・出欠も参照します。
+            </p>
+            <form onSubmit={selectSchool}>
+              <label>
+                学校コード
+                <input required autoFocus autoComplete="off" value={schoolCode} onChange={(event) => setSchoolCode(event.target.value)} />
+              </label>
+              <label>
+                学籍番号（任意）
+                <input autoComplete="off" value={studentNumber} onChange={(event) => setStudentNumber(event.target.value)} />
+              </label>
+              {schoolError && <p className="feedback error">{schoolError}</p>}
+              <div className="school-dialog-actions">
+                <button className="school-dialog-save">設定する</button>
+                <button type="button" onClick={() => setSchoolDialogOpen(false)}>
+                  キャンセル
+                </button>
+                {school && (
+                  <button type="button" className="school-dialog-clear" onClick={clearSchool}>
+                    学校情報を解除
+                  </button>
+                )}
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
 
       <main className="counsel-layout">
         <section className="character-stage" aria-label="AI相談アシスタント">

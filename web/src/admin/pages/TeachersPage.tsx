@@ -1,67 +1,109 @@
+import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { adminApi } from '../api';
 import { useAdmin } from '../AdminContext';
-import { roleLabel } from '../types';
+import CsvImportPanel from '../CsvImportPanel';
+import IssuedPasswordPanel, { type IssuedPassword } from '../IssuedPasswordPanel';
+import { useAdminI18n } from '../i18n';
 
 export default function TeachersPage() {
-  const { teachers, manager, refresh, run, setNotice } = useAdmin();
+  const { me, schools, teachers, manager, superAdmin, refresh, run, setNotice } = useAdmin();
+  const { t } = useAdminI18n();
+  const [schoolId, setSchoolId] = useState(me?.user.schoolId ?? schools[0]?.id ?? 0);
+  const [issuedPassword, setIssuedPassword] = useState<(IssuedPassword & { teacherId: number }) | null>(null);
+
+  const issueRegistrationPassword = (teacherId: number, teacherName: string) =>
+    run(async () => {
+      const result = await adminApi('teachers/' + teacherId + '/passkey-password', {
+        method: 'POST',
+        body: '{}',
+      });
+      setIssuedPassword({ teacherId, username: result.username, password: result.password, expiresAt: result.expiresAt });
+      setNotice(t('teachers.passwordIssued', { name: teacherName }));
+    });
 
   return (
     <section>
       <div className="admin-page-heading">
         <div>
-          <p className="admin-kicker">TEACHERS</p>
-          <h1>教員管理</h1>
-          <p>教員の所属情報と権限を管理します。</p>
+          <p className="admin-kicker">{t('kicker.teachers')}</p>
+          <h1>{t('teachers.title')}</h1>
+          <p>{t('teachers.description')}</p>
         </div>
         {manager && (
           <Link className="admin-primary" to="/admin/teachers/new">
-            教員を招待
+            {t('teachers.invite')}
           </Link>
         )}
       </div>
+      {manager && (
+        <>
+          {superAdmin && (
+            <label className="admin-school-picker">
+              {t('common.school')}
+              <select value={schoolId} onChange={(event) => setSchoolId(Number(event.target.value))}>
+                <option value={0}>{t('common.selectSchool')}</option>
+                {schools.map((school) => (
+                  <option key={school.id} value={school.id}>
+                    {school.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <CsvImportPanel
+            endpoint="teachers/import"
+            schoolId={schoolId}
+            columns="username,name,email,role"
+            template={'username,name,email,role\nteacher-001,Teacher Name,teacher@example.com,general\n'}
+            onImported={refresh}
+          />
+        </>
+      )}
       <div className="admin-list">
-        {teachers.map((teacher) => (
-          <article className="admin-card teacher" key={teacher.id}>
-            <div>
-              <h2>
-                {teacher.name} <small>{roleLabel[teacher.role]}</small>
-              </h2>
-              <p>
-                @{teacher.username} · {teacher.department || '部署未登録'} · {teacher.subjects || '担当未登録'}
-              </p>
-            </div>
-            {manager && teacher.role !== 'super_admin' && (
-              <div className="admin-actions">
-                <Link to="/admin/teachers/edit" search={{ teacherId: teacher.id }}>
-                  編集
-                </Link>
-                <button
-                  onClick={() =>
-                    void run(async () => {
-                      const result = await adminApi('teachers/' + teacher.id + '/reset-passkeys', { method: 'POST', body: '{}' });
-                      setNotice(teacher.name + 'さんのPasskeyをリセットしました。パスワード: ' + result.temporaryPassword);
-                    })
-                  }
-                >
-                  Passkeyをリセット
-                </button>
-                <button
-                  className="danger"
-                  onClick={() =>
-                    void run(async () => {
-                      if (!confirm(teacher.name + 'さんを削除しますか？')) return;
-                      await adminApi('teachers/' + teacher.id, { method: 'DELETE' });
-                      await refresh();
-                    })
-                  }
-                >
-                  削除
-                </button>
+        {teachers.map((teacher) => {
+          const canManageAuthentication = manager && teacher.role !== 'super_admin' && teacher.id !== me?.user.id;
+          return (
+            <article className="admin-card teacher" key={teacher.id}>
+              <div>
+                <h2>
+                  {teacher.name} <small>{t(`role.${teacher.role}`)}</small>
+                </h2>
+                <p>@{teacher.username}</p>
               </div>
-            )}
-          </article>
-        ))}
+              {manager && teacher.role !== 'super_admin' && (
+                <div className="admin-actions">
+                  <Link to="/admin/teachers/edit" search={{ teacherId: teacher.id }}>
+                    {t('common.edit')}
+                  </Link>
+                  {canManageAuthentication && (
+                    <>
+                      <button onClick={() => void issueRegistrationPassword(teacher.id, teacher.name)}>
+                        {t('teachers.issuePasskeyPassword')}
+                      </button>
+                      <button
+                        className="danger"
+                        onClick={() =>
+                          void run(async () => {
+                            if (!confirm(t('teachers.confirmDelete', { name: teacher.name }))) return;
+                            await adminApi('teachers/' + teacher.id, { method: 'DELETE' });
+                            if (issuedPassword?.teacherId === teacher.id) setIssuedPassword(null);
+                            await refresh();
+                          })
+                        }
+                      >
+                        {t('common.delete')}
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+              {issuedPassword?.teacherId === teacher.id && (
+                <IssuedPasswordPanel issued={issuedPassword} onClose={() => setIssuedPassword(null)} />
+              )}
+            </article>
+          );
+        })}
       </div>
     </section>
   );

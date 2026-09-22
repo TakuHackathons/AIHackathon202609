@@ -1,11 +1,14 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useAdmin } from './AdminContext';
+import { AdminLocaleSwitch, useAdminI18n } from './i18n';
 
 export function AdminAuth() {
   const { me, error, passwordLoginVisible, setPasswordLoginVisible, loginWithPasskey, loginWithPassword, registerPasskey, run } =
     useAdmin();
+  const { t, locale } = useAdminI18n();
   const [login, setLogin] = useState({ username: '', password: '' });
-  const [passkeyName, setPasskeyName] = useState('この端末のPasskey');
+  const [passkeyName, setPasskeyName] = useState(t('auth.defaultPasskeyName'));
+  useEffect(() => setPasskeyName(t('auth.defaultPasskeyName')), [locale, t]);
 
   if (!me) {
     const submit = (event: FormEvent) => {
@@ -15,38 +18,39 @@ export function AdminAuth() {
     return (
       <main className="admin-shell">
         <section className="admin-login">
+          <AdminLocaleSwitch />
           <p className="admin-kicker">EMPATHY AI COMPANION</p>
-          <h1>教員管理画面</h1>
+          <h1>{t('auth.title')}</h1>
           {error && <p className="admin-error">{error}</p>}
           {passwordLoginVisible ? (
             <>
-              <h2>パスワードでログイン</h2>
-              <p>Passkeyを登録していない教員は、ユーザー名とパスワードでログインします。</p>
+              <h2>{t('auth.passwordTitle')}</h2>
+              <p>{t('auth.passwordHelp')}</p>
               <form onSubmit={submit}>
                 <input
                   required
-                  placeholder="ユーザー名"
+                  placeholder={t('auth.username')}
                   value={login.username}
                   onChange={(event) => setLogin({ ...login, username: event.target.value })}
                 />
                 <input
                   required
                   type="password"
-                  placeholder="パスワード"
+                  placeholder={t('auth.password')}
                   value={login.password}
                   onChange={(event) => setLogin({ ...login, password: event.target.value })}
                 />
-                <button>ログインしてPasskeyを登録</button>
+                <button>{t('auth.loginAndRegister')}</button>
                 <button type="button" onClick={() => setPasswordLoginVisible(false)}>
-                  戻る
+                  {t('common.back')}
                 </button>
               </form>
             </>
           ) : (
             <>
-              <p>Passkeyで安全にログインします。</p>
+              <p>{t('auth.passkeyHelp')}</p>
               <button className="admin-primary" onClick={() => void run(loginWithPasskey)}>
-                Passkeyでログイン
+                {t('auth.passkeyLogin')}
               </button>
             </>
           )}
@@ -54,17 +58,17 @@ export function AdminAuth() {
       </main>
     );
   }
-
   return (
     <main className="admin-shell">
       <section className="admin-login">
-        <p className="admin-kicker">PASSKEY REGISTRATION</p>
-        <h1>Passkeyを登録してください</h1>
-        <p>登録が完了すると、パスワードではログインできなくなります。</p>
+        <AdminLocaleSwitch />
+        <p className="admin-kicker">{t('kicker.passkeyRegistration')}</p>
+        <h1>{t('auth.registrationTitle')}</h1>
+        <p>{t('auth.registrationHelp')}</p>
         {error && <p className="admin-error">{error}</p>}
-        <input value={passkeyName} onChange={(event) => setPasskeyName(event.target.value)} aria-label="Passkey名" />
+        <input value={passkeyName} onChange={(event) => setPasskeyName(event.target.value)} aria-label={t('auth.passkeyName')} />
         <button className="admin-primary" onClick={() => void run(() => registerPasskey(passkeyName))}>
-          Passkeyを登録
+          {t('auth.registerPasskey')}
         </button>
       </section>
     </main>

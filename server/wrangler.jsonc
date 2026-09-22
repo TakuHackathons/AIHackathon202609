@@ -2,12 +2,16 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "empathy-ai-companion",
   "main": "src/index.ts",
-  "compatibility_date": "2025-01-01",
+  "compatibility_date": "2026-06-02",
   "compatibility_flags": ["nodejs_compat"],
   "d1_databases": [{
     "binding": "DB",
     "database_name": "empathy-ai-companion-admin",
     "migrations_dir": "./migrations"
+  }],
+  "r2_buckets": [{
+    "binding": "DOCUMENTS",
+    "bucket_name": "empathy-ai-companion-documents"
   }],
   "assets": {
     "directory": "../web/dist/client",

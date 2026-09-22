@@ -6,9 +6,6 @@ export type Teacher = {
   username: string;
   name: string;
   email: string;
-  department: string;
-  subjects: string;
-  responsibilities: string;
   role: Role;
   createdAt: number;
 };
@@ -39,9 +36,6 @@ export type TeacherFormValue = {
   name: string;
   username: string;
   email: string;
-  department: string;
-  subjects: string;
-  responsibilities: string;
   role: Role;
   schoolId: number;
 };
@@ -50,9 +44,6 @@ export const emptyTeacher: TeacherFormValue = {
   name: '',
   username: '',
   email: '',
-  department: '',
-  subjects: '',
-  responsibilities: '',
   role: 'general',
   schoolId: 0,
 };
