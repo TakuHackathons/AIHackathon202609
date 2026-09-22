@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { and, asc, eq, inArray, like, or } from 'drizzle-orm';
 import { extractText, getDocumentProxy } from 'unpdf';
 import { database } from '../db';
+import { facilityStatuses } from '../services/facility-status';
 import {
   assignments,
   attendance,
@@ -142,9 +143,9 @@ async function resource(c: AdminContext, n = id(c)) {
 catalogRouter.get('/facilities', async (c) => {
   const s = listSchool(c);
   if (!s) return c.json({ facilities: [] });
-  return c.json({
-    facilities: await database(c.env).select().from(facilities).where(eq(facilities.schoolId, s)).orderBy(asc(facilities.name)),
-  });
+  const rows = await database(c.env).select().from(facilities).where(eq(facilities.schoolId, s)).orderBy(asc(facilities.name));
+  const statuses = await facilityStatuses(c.env, rows);
+  return c.json({ facilities: rows.map((row) => ({ ...row, currentStatus: statuses.get(row.id) })) });
 });
 catalogRouter.post('/facilities', async (c) => {
   manager(c);
@@ -186,19 +187,17 @@ catalogRouter.patch('/facilities/:id', async (c) => {
     const status = String(d.manualStatus ?? '');
     if (status) {
       if (!['open', 'closed', 'restricted'].includes(status)) fail(400, 'Invalid manualStatus.');
-      await db
-        .insert(facilityStatusOverrides)
-        .values({
-          facilityId: old.id,
-          status: status as any,
-          startsAt: now,
-          endsAt: d.manualStatusUntil ? Number(d.manualStatusUntil) : null,
-          reason: text(d.manualStatusReason, 'manualStatusReason', 500, false),
-          createdBy: c.get('user').id,
-          updatedBy: c.get('user').id,
-          createdAt: now,
-          updatedAt: now,
-        });
+      await db.insert(facilityStatusOverrides).values({
+        facilityId: old.id,
+        status: status as any,
+        startsAt: now,
+        endsAt: d.manualStatusUntil ? Number(d.manualStatusUntil) : null,
+        reason: text(d.manualStatusReason, 'manualStatusReason', 500, false),
+        createdBy: c.get('user').id,
+        updatedBy: c.get('user').id,
+        createdAt: now,
+        updatedAt: now,
+      });
     }
   }
   return c.json({ facility: r });

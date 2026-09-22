@@ -32,6 +32,7 @@ orcaRouter.post('/chat', async (c) => {
     c.env,
     body.schoolCode.trim(),
     typeof body.studentNumber === 'string' ? body.studentNumber.trim() : '',
+    body.message.trim(),
   );
   if (!selected) return c.json({ error: '学校が見つかりません。' }, 404);
   if (selected.studentMissing) return c.json({ error: '学生番号が見つかりません。' }, 404);

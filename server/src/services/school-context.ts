@@ -22,17 +22,27 @@ import {
   students,
 } from '../db/schema';
 
-export async function buildSchoolContext(env: Bindings, code: string, studentNumber = '') {
+export async function buildSchoolContext(env: Bindings, code: string, studentNumber = '', question = '') {
   const db = database(env);
   const [school] = await db.select().from(schools).where(eq(schools.code, code)).limit(1);
   if (!school) return null;
 
-  const [facilityRows, courseRows, resourceRows, periodRows] = await Promise.all([
+  const [facilityRows, courseRows, periodRows] = await Promise.all([
     db.select().from(facilities).where(eq(facilities.schoolId, school.id)),
     db.select().from(courses).where(eq(courses.schoolId, school.id)),
-    db.select().from(resources).where(eq(resources.schoolId, school.id)),
     db.select().from(schoolPeriods).where(eq(schoolPeriods.schoolId, school.id)),
   ]);
+  let resourceRows = await db.select().from(resources).where(eq(resources.schoolId, school.id));
+  if (question.trim()) {
+    const phrase = '"' + question.trim().replaceAll('"', '""') + '"';
+    const found = await env.DB.prepare(
+      'SELECT d.resource_id AS id FROM resource_search JOIN resource_search_documents d ON d.id = resource_search.rowid WHERE d.school_id = ? AND resource_search MATCH ? ORDER BY bm25(resource_search) LIMIT 20',
+    )
+      .bind(school.id, phrase)
+      .all();
+    const ids = new Set((found.results as Array<{ id: number }>).map((row) => row.id));
+    resourceRows = resourceRows.filter((row) => ids.has(row.id));
+  }
 
   let selected: typeof students.$inferSelect | undefined;
   let courseIds = courseRows.map((row) => row.id);

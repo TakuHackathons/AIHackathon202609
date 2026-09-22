@@ -6,6 +6,7 @@ import { database } from '../db';
 import { challenges, passkeys, schools, sessions, users, publicUser, type User } from '../db/schema';
 import { authRouter } from './auth';
 import { catalogRouter } from './catalog';
+import { educationRouter } from './education';
 import {
   authenticate,
   body,
@@ -46,6 +47,7 @@ adminRouter.use('*', async (c, next) => {
   await authenticate(c);
   await next();
 });
+adminRouter.route('/', educationRouter);
 adminRouter.route('/', catalogRouter);
 
 function requireManager(c: AdminContext) {
@@ -149,7 +151,9 @@ adminRouter.post('/teachers', async (c) => {
   const actor = c.get('user'),
     data = await body(c),
     schoolId = actor.role === 'super_admin' ? Number(field(data, 'schoolId', 100)) : actor.schoolId!,
-    role = managementRole(data.role);
+    requestedRole = managementRole(data.role),
+    role = actor.role === 'super_admin' ? requestedRole : 'general';
+  if (actor.role !== 'super_admin' && requestedRole !== 'general') fail(403, 'Only super admin can grant the admin role.');
   const [school] = await database(c.env).select({ id: schools.id }).from(schools).where(eq(schools.id, schoolId)).limit(1);
   if (!school) fail(404, 'School not found.');
   const temporaryPassword = token(),
@@ -176,7 +180,9 @@ adminRouter.patch('/teachers/:id', async (c) => {
   let role = current.role;
   if (data.role !== undefined && data.role !== current.role) {
     if (current.role === 'super_admin' || !canManage(actor, current)) fail(403, 'Role cannot be changed.');
-    role = managementRole(data.role);
+    const requestedRole = managementRole(data.role);
+    if (requestedRole === 'admin' && actor.role !== 'super_admin') fail(403, 'Only super admin can grant the admin role.');
+    role = requestedRole;
   }
   const [updated] = await database(c.env)
     .update(users)
