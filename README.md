@@ -1,74 +1,162 @@
 # Empathy AI Companion
 
-教育機関向けのAI相談サービスです。利用者が入力した相談にAIが回答し、3DキャラクターがVOICEVOXの音声で読み上げます。教員向け管理画面では、学校と教員の情報を管理できます。
+教育機関向けのAI相談サービスです。利用者の質問にAIが回答し、VOICEVOXで生成した音声に合わせて3Dキャラクターが発話します。教員向け管理画面では、学校、教員、施設、学生、授業、出欠、学校規則、進路資料、イベントを管理できます。
+
+## 必要なもの
+
+- Node.js
+- pnpm
+- Docker
+- Cloudflareアカウント
+- OrcaRouter APIキー
 
 ## ローカル環境の起動
 
-プロジェクトルートで依存パッケージをインストールします。
+### 1. 依存パッケージをインストールする
+
+プロジェクトルートで実行します。
 
 ```sh
 pnpm install
 ```
 
-`server/.env.example`を`server/.env`へコピーし、必要な環境変数を設定します。
+### 2. 環境変数を設定する
 
-D1のマイグレーションとseedを実行します。
+`server/.env.example`を`server/.env`へコピーし、必要な値を設定します。
+
+```env
+ORCAROUTER_API_KEY=your-api-key
+VOICEVOX_API_ROOT_URL=http://127.0.0.1:50021
+```
+
+### 3. ローカルD1を準備する
+
+初回起動時はマイグレーションとseedを実行します。
 
 ```sh
 pnpm --filter empathy-ai-companion-server db:migrate:local
 pnpm --filter empathy-ai-companion-server db:seed:local
 ```
 
-ローカルD1を作り直す場合は、次のコマンドで削除、マイグレーション、seedを順に実行します。
+DBを作り直す場合は、ローカルD1をリセットしてからseedを登録します。
 
 ```sh
 pnpm --filter empathy-ai-companion-server db:migrate:reset
 pnpm --filter empathy-ai-companion-server db:seed:local
 ```
 
-VOICEVOXを起動します。
+### 4. VOICEVOXを起動する
 
 ```sh
 docker pull voicevox/voicevox_engine:cpu-latest
 docker run --rm --name empathy-ai-companion-voicevox -p 127.0.0.1:50021:50021 voicevox/voicevox_engine:cpu-latest
 ```
 
-別々のターミナルでWorkerとWebを起動します。
+### 5. APIサーバーを起動する
+
+別のターミナルで実行します。
 
 ```sh
 pnpm dev:server
+```
+
+APIサーバーは`http://127.0.0.1:8787`で起動します。
+
+### 6. Webフロントエンドを起動する
+
+別のターミナルで実行します。
+
+```sh
 pnpm dev:web
 ```
 
-Web画面に表示されたURLを開きます。教員向け管理画面は同じURLの`/admin/`です。
+ブラウザで`http://localhost:3000`を開きます。管理画面は`http://localhost:3000/admin/`です。
 
-## seedの初期データ
+## seedデータ
 
-一般利用画面で入力する学校コードは次の値です。
+| 項目                  | 値                             |
+| --------------------- | ------------------------------ |
+| 学校名                | `Sample School`                |
+| 学校コード            | `SAMPLE-SCHOOL`                |
+| super adminユーザー名 | `super-admin`                  |
+| パスワード            | `initial-super-admin-password` |
 
-| 項目       | 値              |
-| ---------- | --------------- |
-| 学校名     | `Sample School` |
-| 学校コード | `SAMPLE-SCHOOL` |
+パスワードでログインした後にPasskeyを登録します。Passkey登録後は発行済みパスワードが無効になります。
 
-管理画面へログインするsuper adminは次の値です。
+## 管理画面
 
-| 項目       | 値                             |
-| ---------- | ------------------------------ |
-| ユーザー名 | `super-admin`                  |
-| パスワード | `initial-super-admin-password` |
+| URL                 | 操作                                      |
+| ------------------- | ----------------------------------------- |
+| `/admin/schools`    | 学校の参照・登録・編集                    |
+| `/admin/teachers`   | 教員の参照・招待・編集・削除              |
+| `/admin/facilities` | 施設情報と営業状態の管理                  |
+| `/admin/students`   | 学生番号、性格、配慮事項、タグの管理      |
+| `/admin/courses`    | 学期、担当教員、授業、時間割の管理        |
+| `/admin/attendance` | 出欠登録とCSV取込                         |
+| `/admin/resources`  | 規則、進路資料、イベント、PDFの管理と検索 |
+| `/admin/settings`   | Passkeyの追加・削除                       |
 
-パスキーを登録すると、このパスワードではログインできなくなります。
+super adminで複数学校のデータを操作する場合は、各画面上部の学校選択欄から対象校を選択します。
 
-## 管理権限
+### 教育データを登録する順序
 
-| role          | 操作範囲                         |
-| ------------- | -------------------------------- |
-| `super_admin` | 全学校の登録・編集と全教員の管理 |
-| `admin`       | 所属学校と所属教員の管理         |
-| `general`     | 自分の教員情報とパスキーの管理   |
+1. `/admin/facilities`で教室などの施設と営業時間を登録します。
+2. `/admin/students`で学生番号、性格、配慮事項、検索タグを登録します。
+3. `/admin/courses`の「Academic terms and periods」を開き、学期と時限を登録します。
+4. 同じ画面で授業と担当教員を登録し、「Schedule」から通常時間割と日付ごとの授業回を登録します。施設を使わない授業では施設を未選択にできます。
+5. `/admin/attendance`で授業回ごとの出欠を登録するか、CSVを取り込みます。
+6. `/admin/resources`で学校規則、進路資料、イベントを登録します。外部URLとPDFはどちらも任意です。
 
-学校の削除は管理画面から実行できません。運用スクリプトを使用します。
+一般教員には、自分が担当する授業だけが表示されます。授業の登録・変更、受講学生の登録、授業回と出欠の登録・変更ができます。学期・時限の設定と削除操作は`admin`以上が行います。
+
+### 施設の営業状態
+
+施設の現在状態は次の優先順位で判定されます。
+
+1. 有効期間内の手動上書き
+2. 当日の日付指定例外
+3. 曜日ごとの通常営業時間
+4. 該当する営業時間がなければ閉鎖中
+
+判定には学校に設定されたタイムゾーンを使用します。
+
+### 出欠CSV
+
+管理画面の`/admin/attendance`で授業を選択し、CSVファイルを取り込みます。
+
+```csv
+student_number,course_session_id,status,note
+S0001,12,present,
+S0002,12,late,交通機関の遅延
+S0003,12,excused,公欠
+```
+
+`status`には次の値を指定します。
+
+| 値        | 内容 |
+| --------- | ---- |
+| `present` | 出席 |
+| `late`    | 遅刻 |
+| `absent`  | 欠席 |
+| `excused` | 公欠 |
+
+取込に失敗した行は、行番号と理由が画面に表示されます。正常な行は、ほかの行にエラーがあっても登録されます。
+
+### PDF本文検索
+
+規則、進路資料、イベントにはPDFを添付できます。PDFの本文はアップロード時に抽出され、D1のFTS5検索対象へ自動登録されます。管理画面の資料検索と一般画面のAI回答で参照されます。
+
+## 権限
+
+| role          | 操作範囲                                                 |
+| ------------- | -------------------------------------------------------- |
+| `super_admin` | 全学校の登録・編集、全教員と教育データの管理             |
+| `admin`       | 所属校、所属教員、施設、学生、授業、出欠、資料の管理     |
+| `general`     | 所属校データの参照、自分が担当する授業と出欠の登録・変更 |
+
+`admin`を付与できるのは`super_admin`だけです。学校の削除は管理画面から実行できません。
+
+学校を削除する場合は、対象環境を明示してスクリプトを実行します。
 
 ```sh
 pnpm --filter empathy-ai-companion-server delete:school -- <school-id> --local
@@ -76,6 +164,8 @@ pnpm --filter empathy-ai-companion-server delete:school -- <school-id> --remote
 ```
 
 ## Cloudflareへのデプロイ
+
+D1とR2のbindingを`server/wrangler.jsonc`へ設定してから実行します。
 
 ```sh
 pnpm --filter empathy-ai-companion-server exec wrangler d1 create empathy-ai-companion-admin
@@ -86,7 +176,7 @@ pnpm --filter empathy-ai-companion-server exec wrangler secret put VOICEVOX_API_
 pnpm deploy:cloudflare
 ```
 
-## 確認コマンド
+## 検証
 
 ```sh
 pnpm lint

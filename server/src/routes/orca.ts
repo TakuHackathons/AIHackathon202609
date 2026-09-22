@@ -27,20 +27,22 @@ orcaRouter.post('/chat', async (c) => {
     JSON.stringify(history).length > 40000
   )
     return c.json({ error: '会話履歴の形式または長さが正しくありません。' }, 400);
-  if (typeof body.schoolCode !== 'string' || !body.schoolCode.trim()) return c.json({ error: '学校コードを入力してください。' }, 400);
-  const selected = await buildSchoolContext(
-    c.env,
-    body.schoolCode.trim(),
-    typeof body.studentNumber === 'string' ? body.studentNumber.trim() : '',
-    body.message.trim(),
-  );
-  if (!selected) return c.json({ error: '学校が見つかりません。' }, 404);
-  if (selected.studentMissing) return c.json({ error: '学生番号が見つかりません。' }, 404);
-  const contextualMessage =
-    '次の学校登録情報を正として回答してください。他校や他学生の情報は開示せず、情報がなければ未登録と伝えてください。\n' +
-    selected.context +
-    '\n質問: ' +
-    body.message;
+  let contextualMessage = body.message;
+  if (typeof body.schoolCode === 'string' && body.schoolCode.trim()) {
+    const selected = await buildSchoolContext(
+      c.env,
+      body.schoolCode.trim(),
+      typeof body.studentNumber === 'string' ? body.studentNumber.trim() : '',
+      body.message.trim(),
+    );
+    if (!selected) return c.json({ error: 'School not found.' }, 404);
+    if (selected.studentMissing) return c.json({ error: 'Student number not found.' }, 404);
+    contextualMessage =
+      'Use the following registered school data as the source of truth. Do not expose information about other schools or students. If the answer is absent, say it is not registered.\n' +
+      selected.context +
+      '\nQuestion: ' +
+      body.message;
+  }
   const controller = new AbortController();
   const signal = AbortSignal.any([c.req.raw.signal, controller.signal, AbortSignal.timeout(120000)]);
   try {
