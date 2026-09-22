@@ -101,8 +101,10 @@ export default function Studio() {
   const [ended, setEnded] = useState(false);
   const [school, setSchool] = useState<SchoolSelection | null>(null);
   const [schoolReady, setSchoolReady] = useState(false);
+  const [schoolDialogOpen, setSchoolDialogOpen] = useState(false);
   const [schoolCode, setSchoolCode] = useState('');
   const [studentNumber, setStudentNumber] = useState('');
+  const [schoolError, setSchoolError] = useState('');
   const audioEnabled = useRef(true);
   const active = useRef<AbortController | null>(null);
   const summarizing = useRef<AbortController | null>(null);
@@ -115,7 +117,11 @@ export default function Studio() {
   useEffect(() => {
     try {
       const saved = localStorage.getItem(schoolStorageKey);
-      if (saved) setSchool(JSON.parse(saved));
+      if (saved) {
+        const selected = JSON.parse(saved) as SchoolSelection;
+        if (!selected.schoolCode || !selected.schoolName) throw new Error('Invalid school selection.');
+        setSchool(selected);
+      }
     } catch {
       localStorage.removeItem(schoolStorageKey);
     } finally {
@@ -322,48 +328,50 @@ export default function Studio() {
     setEnded(false);
   }
 
+  function resetConversationForSchoolChange() {
+    stop();
+    summarizing.current?.abort();
+    setMessages(initial);
+    setCaption(greeting);
+    setSummary('');
+    setEnded(false);
+  }
+  function openSchoolDialog() {
+    setSchoolCode(school?.schoolCode ?? '');
+    setStudentNumber(school?.studentNumber ?? '');
+    setSchoolError('');
+    setSchoolDialogOpen(true);
+  }
   async function selectSchool(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError('');
+    setSchoolError('');
     try {
       const response = await request('school-context/select', { schoolCode, studentNumber });
       const data = await response.json();
       const selected = { schoolCode: data.school.code, schoolName: data.school.name, studentNumber: data.studentNumber || '' };
+      if (school?.schoolCode !== selected.schoolCode || school?.studentNumber !== selected.studentNumber)
+        resetConversationForSchoolChange();
       localStorage.setItem(schoolStorageKey, JSON.stringify(selected));
       setSchool(selected);
+      setSchoolCode(selected.schoolCode);
+      setStudentNumber(selected.studentNumber);
+      setSchoolDialogOpen(false);
+      setNotice('学校情報を設定しました。これ以降の回答に学校情報を反映します。');
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : '学校情報を確認できませんでした。');
+      setSchoolError(cause instanceof Error ? cause.message : '学校情報を確認できませんでした。');
     }
   }
-  function leaveSchool() {
-    stop();
+  function clearSchool() {
+    if (school) resetConversationForSchoolChange();
     localStorage.removeItem(schoolStorageKey);
     setSchool(null);
-    setMessages(initial);
     setSchoolCode('');
     setStudentNumber('');
+    setSchoolError('');
+    setSchoolDialogOpen(false);
+    setNotice('学校情報を解除しました。一般的な相談として回答します。');
   }
   if (!schoolReady) return null;
-  if (!school)
-    return (
-      <main className="school-selection">
-        <form onSubmit={selectSchool}>
-          <span>EMPATHY AI COMPANION</span>
-          <h1>利用する学校を選択</h1>
-          <p>学校コードを入力してください。学生番号は個人の時間割・課題・出欠を確認する場合のみ入力します。</p>
-          <label>
-            学校コード
-            <input required value={schoolCode} onChange={(e) => setSchoolCode(e.target.value)} />
-          </label>
-          <label>
-            学生番号（任意）
-            <input value={studentNumber} onChange={(e) => setStudentNumber(e.target.value)} />
-          </label>
-          {error && <p className="feedback error">{error}</p>}
-          <button>相談をはじめる</button>
-        </form>
-      </main>
-    );
 
   return (
     <div className="counsel-app">
@@ -375,13 +383,14 @@ export default function Studio() {
           <h1>よりそいAI相談室</h1>
         </a>
         <div className="header-actions">
-          <span className="selected-school">
-            {school.schoolName}
-            {school.studentNumber ? ' / ' + school.studentNumber : ''}
-          </span>
-          <button type="button" className="school-logout" onClick={leaveSchool}>
-            学校を変更
-          </button>
+          <div className="school-context-summary">
+            <span className="selected-school">
+              {school ? school.schoolName + (school.studentNumber ? ' / ' + school.studentNumber : '') : '学校情報なし'}
+            </span>
+            <button type="button" className="school-context-button" onClick={openSchoolDialog}>
+              {school ? '学校情報を変更' : '学校・学籍番号を設定'}
+            </button>
+          </div>
           <label className="toggle-label">
             <span>音声</span>
             <button type="button" className="switch" role="switch" aria-checked={audio} aria-label="音声" onClick={toggleAudio}>
@@ -406,6 +415,53 @@ export default function Studio() {
           </button>
         </div>
       </header>
+
+      {schoolDialogOpen && (
+        <div className="school-dialog-backdrop" onMouseDown={() => setSchoolDialogOpen(false)}>
+          <section
+            className="school-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="school-dialog-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="school-dialog-heading">
+              <div>
+                <span>PERSONALIZE YOUR SUPPORT</span>
+                <h2 id="school-dialog-title">学校・学生情報</h2>
+              </div>
+              <button type="button" aria-label="閉じる" onClick={() => setSchoolDialogOpen(false)}>
+                ×
+              </button>
+            </div>
+            <p>
+              学校コードを設定すると、登録された時間割・施設・規則などを回答に反映します。学籍番号を入力すると、個人の履修・課題・出欠も参照します。
+            </p>
+            <form onSubmit={selectSchool}>
+              <label>
+                学校コード
+                <input required autoFocus autoComplete="off" value={schoolCode} onChange={(event) => setSchoolCode(event.target.value)} />
+              </label>
+              <label>
+                学籍番号（任意）
+                <input autoComplete="off" value={studentNumber} onChange={(event) => setStudentNumber(event.target.value)} />
+              </label>
+              {schoolError && <p className="feedback error">{schoolError}</p>}
+              <div className="school-dialog-actions">
+                <button className="school-dialog-save">設定する</button>
+                <button type="button" onClick={() => setSchoolDialogOpen(false)}>
+                  キャンセル
+                </button>
+                {school && (
+                  <button type="button" className="school-dialog-clear" onClick={clearSchool}>
+                    学校情報を解除
+                  </button>
+                )}
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
 
       <main className="counsel-layout">
         <section className="character-stage" aria-label="AI相談アシスタント">

@@ -23,6 +23,8 @@ test('returns the non-streaming OrcaRouter answer with educational instructions 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: '使い方を教えて',
+          schoolCode: '',
+          studentNumber: 'S0001',
           history: [
             { role: 'user', content: '進路に迷っています' },
             { role: 'assistant', content: '興味のあることはありますか？' },
