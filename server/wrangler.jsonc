@@ -1,20 +1,30 @@
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "empathy-ai-companion",
-  "main": "src/index.ts",
-  "compatibility_date": "2026-06-02",
-  "compatibility_flags": ["nodejs_compat"],
-  "d1_databases": [{
-    "binding": "DB",
-    "database_name": "empathy-ai-companion",
-    "migrations_dir": "./migrations"
-  }],
-  "r2_buckets": [{
-    "binding": "DOCUMENTS",
-    "bucket_name": "empathy-ai-companion-documents"
-  }],
-  "assets": {
-    "directory": "../web/dist/client",
-    "run_worker_first": ["/api", "/api/*"],
-  },
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "empathy-ai-companion",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-06-02",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "empathy-ai-companion",
+			"database_id": "525b2336-f1be-4d13-8e33-6b8ebf4cdeaa",
+			"migrations_dir": "./migrations"
+		}
+	],
+	"r2_buckets": [
+		{
+			"binding": "DOCUMENTS",
+			"bucket_name": "empathy-ai-companion-documents"
+		}
+	],
+	"assets": {
+		"directory": "../web/dist/client",
+		"run_worker_first": [
+			"/api",
+			"/api/*"
+		],
+	},
 }
