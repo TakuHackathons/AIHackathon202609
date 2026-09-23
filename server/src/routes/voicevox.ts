@@ -79,7 +79,7 @@ voicevoxRouter.post('/speech', async (c) => {
     return c.json({ error: '読み上げテキストは1〜500文字で指定してください。' }, 400);
   const root = (c.env.VOICEVOX_API_ROOT_URL || 'http://127.0.0.1:50021').replace(/\/$/, '');
   const signal = AbortSignal.any([c.req.raw.signal, AbortSignal.timeout(60000)]);
-  const query = await fetch(root + '/audio_query?' + new URLSearchParams({ text: body.text, speaker: '3' }), { method: 'POST', signal });
+  const query = await fetch(root + '/audio_query?' + new URLSearchParams({ text: body.text, speaker: '14' }), { method: 'POST', signal });
   if (!query.ok) throw new UpstreamError('VOICEVOX audio_query: ' + query.status);
   const audio = await fetch(root + '/synthesis?speaker=3', {
     method: 'POST',
